@@ -315,7 +315,7 @@ Paper is in prep!
 
 ## License
 
-TBD
+AstroAmase Lite is distributed under the GNU General Public License, version 3. The original Astro AMASE MIT notice is retained in [LICENSE](LICENSE). See the [Lite notices](LITE-NOTICES.md) for the changes, third-party software and catalog attribution.
 
 
 ## Support

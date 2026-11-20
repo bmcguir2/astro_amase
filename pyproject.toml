@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm>=6.2"]
+requires = ["setuptools>=77", "wheel", "setuptools_scm>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,7 +8,8 @@ dynamic = ["version"]
 description = "Automated Molecular Assignment and Source parameter Estimation for radio astronomy"
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "MIT"}
+license = "GPL-3.0-only"
+license-files = ["LICENSE", "licenses/molsim-GPL-3.0.txt"]
 authors = [
     {name = "Zachary Fried", email = "zfried@mit.edu"}
 ]
@@ -30,7 +31,6 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Astronomy",
     "Topic :: Scientific/Engineering :: Chemistry",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -71,8 +71,9 @@ Changelog = "https://github.com/zfried/astro_amase/blob/main/CHANGELOG.md"
 [project.scripts]
 astro-amase = "astro_amase.main:cli_entry"
 
-[tool.setuptools]
-packages = ["astro_amase"]
+[tool.setuptools.packages.find]
+include = ["astro_amase", "astro_amase.*"]
+namespaces = false
 
 [tool.setuptools.dynamic]
 version = {attr = "astro_amase.version.__version__"}
