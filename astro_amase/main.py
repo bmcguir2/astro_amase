@@ -16,6 +16,7 @@ from .analysis.determine_linewidth import find_linewidth, find_linewidth_standal
 from .analysis.determine_vlsr import find_vlsr
 from .data.load_data import load_data_get_peaks, load_data_original
 from .data.create_dataset import create_full_dataset
+from .data.catalog_registry import CatalogRegistry
 from .core.run_assignment import run_full_assignment
 from .output.create_output_file import write_output_text, remove_molecules_and_write_output
 from .analysis.best_fit_model import full_fit
@@ -143,7 +144,7 @@ def assign_observations(
     results : dict
         Dictionary containing:
         - 'assigner': IterativeSpectrumAssignment object with results
-        - 'statistics': Assignment statistics (assigned, unidentified counts)
+        - 'statistics': Final fitted peak counts (single carrier, unidentified) and distinct carriers
         - 'vlsr': Determined or input VLSR (km/s)
         - 'temperature': Determined or input temperature (K)
         - 'linewidth': Determined linewidth (km/s)
@@ -699,7 +700,8 @@ def run_pipeline(user_outputs: Dict[str, Any]) -> Dict[str, Any]:
         - column_density_results: pandas DF
             dataframe that stores the SMILES string and determined column density of each assigned molecule
         - statistics: dictionary
-            dictionary containing summary statistics of the line assignment
+            Counts from the final fitted peak table. `assigned_lines` counts single-carrier
+            peaks, and `assigned_molecules` counts distinct fitted carrier labels.
         - vlsr : float
             Determined or input VLSR (km/s)
         - temperature : float
@@ -803,6 +805,9 @@ def run_pipeline(user_outputs: Dict[str, Any]) -> Dict[str, Any]:
             raise ValueError(f"Error: {file_name} file is not present in your directory_path. "
                             "This needs to be downloaded from the Dropbox folder linked in the README and stored locally in directory_path.")
         
+
+    registry = CatalogRegistry(base_path)
+    registry.validate_band(freq_arr)
 
     #quality checks with output directory
     subfolder_path = os.path.join(user_outputs['directory_path'], user_outputs['save_name'])
@@ -971,7 +976,8 @@ def run_pipeline(user_outputs: Dict[str, Any]) -> Dict[str, Any]:
         user_outputs['continuum_temperature'],
         user_outputs['force_ignore_molecules'],
         subfolder_path,
-        user_outputs['only_previously_detected_mols']
+        user_outputs['only_previously_detected_mols'],
+        consider_structure=user_outputs['consider_structure'], registry=registry,
     )
     dataset_time = time.perf_counter()
     print(f'Dataset creation time: {round((dataset_time - param_time) / 60, 2)} minutes')
@@ -990,6 +996,7 @@ def run_pipeline(user_outputs: Dict[str, Any]) -> Dict[str, Any]:
         peak_data['peak_freqs_full'],
         user_outputs['consider_structure'],
         noise_is_dict=noise_is_dict,
+        spectroscopy_elements={u.structure_key: u.elements for u in registry.uploads if not u.smiles},
         known_molecules=user_outputs.get('known_molecules', None),
         few_line_spectrum=user_outputs.get('few_line_spectrum', False),
     )
@@ -1037,6 +1044,7 @@ def run_pipeline(user_outputs: Dict[str, Any]) -> Dict[str, Any]:
         subfolder_path,
         best_temp, dv_value, best_vlsr,
         few_line_spectrum=user_outputs.get('few_line_spectrum', False),
+        fitted_peaks=assignment_df,
     )
     
     final_time = time.perf_counter()
@@ -1077,6 +1085,7 @@ def run_pipeline(user_outputs: Dict[str, Any]) -> Dict[str, Any]:
 
     print('saving parameters')
     save_parameters(user_outputs, results, subfolder_path)
+    registry.save_scope(subfolder_path)
     
 
     return results
@@ -1343,3 +1352,20 @@ def _build_parameters_from_kwargs(spectrum_path: str, directory_path: str, **kwa
         params['bmin'] = float(kwargs['beam_minor_axis'])
     
     return params
+
+def cli_entry():
+    """Run the package's documented interactive or configuration-file workflow."""
+    from .config.config_handler import get_parameters
+
+    options = get_parameters()
+    options["vlsr"] = options.pop("vlsr_input")
+    options["temperature_is_exact"] = options.pop("temperature_choice")
+    options.pop("rms_manual")
+    options.pop("vlsr_known")
+    major, minor = options.pop("bmaj_or_dish"), options.pop("bmin")
+    if options["observation_type"] in ("1", "single_dish"):
+        options["dish_diameter"] = major
+    else:
+        options["beam_major_axis"] = major
+        options["beam_minor_axis"] = minor
+    assign_observations(**options)

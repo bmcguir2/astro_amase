@@ -168,7 +168,9 @@ def remove_molecules_and_write_output(assignment: 'IterativeSpectrumAssignment',
                                        temp: float,
                                        dv_value: float,
                                        vlsr_value: float,
-                                       few_line_spectrum: bool = False):
+                                       few_line_spectrum: bool = False,
+                                       *,
+                                       fitted_peaks: pd.DataFrame | None = None):
     """
     Remove specified molecules by penalizing their scores, reassign lines, and generate report.
     
@@ -193,12 +195,17 @@ def remove_molecules_and_write_output(assignment: 'IterativeSpectrumAssignment',
         Determined line width (km/s) from analysis.
     vlsr_value : float
         Determined source velocity (km/s) relative to the local standard of rest.
+    fitted_peaks : pandas.DataFrame, optional
+        Final fitted peak table used for the report summary and returned counts.
+        Defaults to summarizing the candidate assignments when omitted.
     
     Returns
     -------
     assignedMols : list of tuple
         List of (molecule_name, database_source) tuples for all molecules assigned to
         at least one spectral line after removal. Used as input for subsequent best-fit modeling.
+    statDict : dict
+        Number of peaks, single-carrier peaks, unidentified peaks, and distinct carriers.
     """
     
     globalThreshOriginal = global_thresh
@@ -243,6 +250,8 @@ def remove_molecules_and_write_output(assignment: 'IterativeSpectrumAssignment',
     f.write('Determined (or inputted) VLSR: ' + str(round(vlsr_value, 2)) + ' km/s\n')
     f.write('Determined (or inputted) Temperature: ' + str(round(temp, 2)) + ' K\n')
     f.write('\n')
+    if fitted_peaks is not None:
+        f.write('Candidate assignment details\n')
     f.write('--------------------------------------\n')
     
     # Counters
@@ -328,29 +337,44 @@ def remove_molecules_and_write_output(assignment: 'IterativeSpectrumAssignment',
         f.write('\n')
         f.write('------------------------------------------------------------\n')
     
-    # Write summary
-    f.write('\n')
-    f.write('Final Report\n')
-    f.write('Total number of lines: ' + str(len(assignment.lines)) + '\n')
-    f.write('Number of lines assigned to a single carrier: ' + str(assignCount) + '\n')
-    f.write('Number of lines with more than one possible carrier: ' + str(mulCount) + '\n')
-    f.write('Number of unassigned lines: ' + str(unCount) + '\n')
-    
-    f.close()
-    
-    print("Output report complete!")
-    
     # Create list of assigned molecules for best-fit modeling
     assignedMols = []
-    assignedNames = []
     
     for entry in assignList:
         smiles, formula, score, linelist = entry
         if (formula, linelist) not in assignedMols:
             assignedMols.append((formula, linelist))
-            assignedNames.append(formula)
-    
-    statDict = {'total_lines': len(assignment.lines), 'assigned_lines': assignCount, 'unidentified_lines': unCount, 'assigned_molecules': len(assignedNames)}
+
+    total_lines = len(assignment.lines)
+    assigned_molecules = len(assignedMols)
+    if fitted_peaks is not None:
+        # The fitted table includes peaks that had no candidates during assignment.
+        carriers = [
+            row for row in fitted_peaks.get('carrier_molecules', [])
+            if row and 'Unidentified' not in row
+        ]
+        total_lines = len(fitted_peaks)
+        assignCount = sum(len(row) == 1 for row in carriers)
+        mulCount = len(carriers) - assignCount
+        unCount = total_lines - len(carriers)
+        assigned_molecules = len({molecule for row in carriers for molecule in row})
+
+    f.write('\nFinal Report\n')
+    if fitted_peaks is not None:
+        f.write('Counts from final_peak_results.csv\n')
+    f.write('Total number of lines: ' + str(total_lines) + '\n')
+    f.write('Number of lines assigned to a single carrier: ' + str(assignCount) + '\n')
+    f.write('Number of lines with more than one possible carrier: ' + str(mulCount) + '\n')
+    f.write('Number of unassigned lines: ' + str(unCount) + '\n')
+    f.close()
+    print("Output report complete!")
+
+    statDict = {
+        'total_lines': total_lines,
+        'assigned_lines': assignCount,
+        'unidentified_lines': unCount,
+        'assigned_molecules': assigned_molecules,
+    }
 
     return assignedMols, statDict
 

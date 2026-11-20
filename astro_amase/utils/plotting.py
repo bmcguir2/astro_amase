@@ -6,6 +6,8 @@ Utilities to plot the results of the fit.
 
 
 import pandas as pd
+from ..data.catalog_registry import CatalogRegistry
+from ..output.catalog_names import catalog_file_stems
 import numpy as np
 import os
 import pickle 
@@ -299,16 +301,7 @@ def plot_from_saved(spectrum_path, directory_path, column_density_csv, stored_js
     # Set up notebook output
     output_notebook()
     #loading required files 
-    cdmsDirec = os.path.join(directory_path, 'cdms_pkl/')
-    cdmsFullDF = pd.read_csv(os.path.join(directory_path, 'all_cdms_final_official.csv'))
-    df_cdms = cdmsFullDF
-    cdms_mols = list(df_cdms['mol'])
-    cdms_tags = list(df_cdms['tag'])
-    jplDirec = os.path.join(directory_path, 'jpl_pkl/')
-    jplFullDF = pd.read_csv(os.path.join(directory_path, 'all_jpl_final_official.csv'))
-    df_jpl = jplFullDF
-    jpl_mols = list(df_jpl['name'])
-    jpl_tags = list(df_jpl['tag'])
+    registry = CatalogRegistry(directory_path)
 
 
     loaded_params = load_parameters(stored_json) #loading saved parameters
@@ -319,6 +312,7 @@ def plot_from_saved(spectrum_path, directory_path, column_density_csv, stored_js
     assigned_columns = list(df['column_density']) #retrieving fitted column densities
 
     data = load_obs(spectrum_path, type = 'txt') #load spectrum
+    registry.validate_band(data.spectrum.frequency)
     ll0, ul0 = find_limits(data.spectrum.frequency) #determine upper and lower limits of the spectrum
     freqs = data.spectrum.frequency #frequency array of spectrum
     y_exp = data.spectrum.Tb #intensity array of spectrum
@@ -341,32 +335,14 @@ def plot_from_saved(spectrum_path, directory_path, column_density_csv, stored_js
     mol_list = []
     labels = []
     #retrieving required molecule objects for simulation
-    c = 0
-    for a_mol in assigned_mols: 
-        if a_mol in cdms_mols:
-            idx = cdms_mols.index(a_mol)
-            tag = cdms_tags[idx]
-            tagString = f"{tag:06d}"
-            molDirec = cdmsDirec + tagString + '.pkl'
-            with open(molDirec, 'rb') as md:
-                mol = pickle.load(md)
-            mol_list.append(mol)
-            labels.append(a_mol)
-            fitted_columns.append(assigned_columns[c])
-        elif a_mol in jpl_mols:
-            idx = jpl_mols.index(a_mol)
-            tag = jpl_tags[idx]
-            tagString = str(tag)
-            molDirec = jplDirec + tagString + '.pkl'
-            with open(molDirec, 'rb') as md:
-                mol = pickle.load(md)
-            mol_list.append(mol)
-            labels.append(a_mol)
-            fitted_columns.append(assigned_columns[c])
-        else:
-            print('ignoring')
-            print(a_mol)
-        c += 1
+    registry.check_saved_scope(stored_json)
+    for label, density in zip(assigned_mols, assigned_columns):
+        if label not in registry.by_label:
+            raise ValueError(f"The fitted catalog {label!r} is absent from this analysis directory.")
+        mol_list.append(registry.entry(label).load())
+        labels.append(label)
+        fitted_columns.append(density)
+
 
     
 
@@ -536,16 +512,7 @@ def get_individual_plots(spectrum_path, directory_path, save_path, column_densit
     """
 
     #loading required files 
-    cdmsDirec = os.path.join(directory_path, 'cdms_pkl/')
-    cdmsFullDF = pd.read_csv(os.path.join(directory_path, 'all_cdms_final_official.csv'))
-    df_cdms = cdmsFullDF
-    cdms_mols = list(df_cdms['mol'])
-    cdms_tags = list(df_cdms['tag'])
-    jplDirec = os.path.join(directory_path, 'jpl_pkl/')
-    jplFullDF = pd.read_csv(os.path.join(directory_path, 'all_jpl_final_official.csv'))
-    df_jpl = jplFullDF
-    jpl_mols = list(df_jpl['name'])
-    jpl_tags = list(df_jpl['tag'])
+    registry = CatalogRegistry(directory_path)
 
 
     loaded_params = load_parameters(stored_json) #loading saved parameters
@@ -556,6 +523,7 @@ def get_individual_plots(spectrum_path, directory_path, save_path, column_densit
     assigned_columns = list(df['column_density']) #retrieving fitted column densities
 
     data = load_obs(spectrum_path, type = 'txt') #load spectrum
+    registry.validate_band(data.spectrum.frequency)
     ll0, ul0 = find_limits(data.spectrum.frequency) #determine upper and lower limits of the spectrum
     freq_arr = data.spectrum.frequency #frequency array of spectrum
     y_exp = data.spectrum.Tb #intensity array of spectrum
@@ -596,32 +564,14 @@ def get_individual_plots(spectrum_path, directory_path, save_path, column_densit
     mol_list = []
     labels = []
     #retrieving required molecule objects for simulation
-    c = 0
-    for a_mol in assigned_mols: 
-        if a_mol in cdms_mols:
-            idx = cdms_mols.index(a_mol)
-            tag = cdms_tags[idx]
-            tagString = f"{tag:06d}"
-            molDirec = cdmsDirec + tagString + '.pkl'
-            with open(molDirec, 'rb') as md:
-                mol = pickle.load(md)
-            mol_list.append(mol)
-            labels.append(a_mol)
-            fitted_columns.append(assigned_columns[c])
-        elif a_mol in jpl_mols:
-            idx = jpl_mols.index(a_mol)
-            tag = jpl_tags[idx]
-            tagString = str(tag)
-            molDirec = jplDirec + tagString + '.pkl'
-            with open(molDirec, 'rb') as md:
-                mol = pickle.load(md)
-            mol_list.append(mol)
-            labels.append(a_mol)
-            fitted_columns.append(assigned_columns[c])
-        else:
-            print('ignoring')
-            print(a_mol)
-        c += 1
+    registry.check_saved_scope(stored_json)
+    for label, density in zip(assigned_mols, assigned_columns):
+        if label not in registry.by_label:
+            raise ValueError(f"The fitted catalog {label!r} is absent from this analysis directory.")
+        mol_list.append(registry.entry(label).load())
+        labels.append(label)
+        fitted_columns.append(density)
+
 
     
     '''
@@ -666,6 +616,7 @@ def get_individual_plots(spectrum_path, directory_path, save_path, column_densit
     #print(f"Filtered labels: {filtered_labels}")
     #print(f"Fitted columns: {fitted_columns}")
     # Individual molecules
+    stems = catalog_file_stems(labels)
     for i, (mol, col, label) in enumerate(zip(filtered_mols, fitted_columns, filtered_labels)):
         #print(label)
         #print(f"Scientific notation: {col:e}")
@@ -731,7 +682,7 @@ def get_individual_plots(spectrum_path, directory_path, save_path, column_densit
 
             # Create PDF to save all peaks
             # Create PDF to save all peaks
-            save_label = label.replace('/','_')
+            save_label = stems[label]
             pdf_filename = os.path.join(save_path,f"{save_label}_peaks.pdf")  # m is your molecule name
             with PdfPages(pdf_filename) as pdf:
                 n_peaks = len(peak_freqs2)
@@ -946,19 +897,11 @@ def create_interactive_vlsr_plot(spectrum_path, directory_path, molecule_name,
     output_notebook()
     
     # Load all the static data
-    cdmsDirec = os.path.join(directory_path, 'cdms_pkl/')
-    cdmsFullDF = pd.read_csv(os.path.join(directory_path, 'all_cdms_final_official.csv'))
-    df_cdms = cdmsFullDF
-    cdms_mols = list(df_cdms['mol'])
-    cdms_tags = list(df_cdms['tag'])
-    jplDirec = os.path.join(directory_path, 'jpl_pkl/')
-    jplFullDF = pd.read_csv(os.path.join(directory_path, 'all_jpl_final_official.csv'))
-    df_jpl = jplFullDF
-    jpl_mols = list(df_jpl['name'])
-    jpl_tags = list(df_jpl['tag'])
+    registry = CatalogRegistry(directory_path)
     
     # Load observed spectrum
     data = load_obs(spectrum_path, type='txt')
+    registry.validate_band(data.spectrum.frequency)
     ll0, ul0 = find_limits(data.spectrum.frequency)
     freq_arr = data.spectrum.frequency
     y_exp = data.spectrum.Tb
@@ -975,24 +918,8 @@ def create_interactive_vlsr_plot(spectrum_path, directory_path, molecule_name,
     data.observatory = observatory1
     
     # Load molecule
-    if molecule_name in cdms_mols:
-        idx = cdms_mols.index(molecule_name)
-        tag = cdms_tags[idx]
-        tagString = f"{tag:06d}"
-        molDirec = cdmsDirec + tagString + '.pkl'
-        with open(molDirec, 'rb') as md:
-            mol = pickle.load(md)
-    elif molecule_name in jpl_mols:
-        idx = jpl_mols.index(molecule_name)
-        tag = jpl_tags[idx]
-        tagString = str(tag)
-        molDirec = jplDirec + tagString + '.pkl'
-        with open(molDirec, 'rb') as md:
-            mol = pickle.load(md)
-    else:
-        raise ValueError('Could not find molecule. Please check inputted molecule_name')
-    
-    # Compute spectrum ONCE at vlsr=0
+    mol = registry.entry(molecule_name).load()
+
     src_ref = Source(
         Tex=excitation_temperature, column=column_density, size=source_size,
         dV=linewidth, velocity=0.0, continuum=cont

@@ -311,7 +311,7 @@ def load_dataset(direc: str, numMols: int = None) -> Tuple:
 def run_assignment(temp: float, direc: str, subdirec: str, splatDict: Dict,
                   validAtoms: List[str], dv_value_freq: float,
                   freq_arr: np.ndarray, rms_arr: np.ndarray, peak_freqs_full: np.ndarray,
-                  known_molecules: List[str] = None, consider_structure: bool = True, noise_is_dict = False, few_line_spectrum: bool = False) -> Tuple:
+                  known_molecules: List[str] = None, consider_structure: bool = True, noise_is_dict = False, few_line_spectrum: bool = False, spectroscopy_elements=None) -> Tuple:
     """
     Main function to run the iterative spectrum assignment.
     
@@ -355,7 +355,7 @@ def run_assignment(temp: float, direc: str, subdirec: str, splatDict: Dict,
         temperature=temp,
         freq_arr=freq_arr,
         rms_arr=rms_arr,
-        max_observed_intensity=max(intensities),
+        max_observed_intensity=max(intensities, default=0.0),
         global_threshold_original=global_thresh,
         local_threshold=local_thresh,
         valid_atoms=validAtoms,
@@ -363,7 +363,7 @@ def run_assignment(temp: float, direc: str, subdirec: str, splatDict: Dict,
         peak_freqs_full=peak_freqs_full,
         total_smiles=totalSmiles,
         known_molecules=known_molecules,
-        consider_structure = consider_structure
+        consider_structure=consider_structure, spectroscopy_elements=spectroscopy_elements or {},
     )
     
     # Initialize the assignment system
@@ -377,6 +377,7 @@ def run_assignment(temp: float, direc: str, subdirec: str, splatDict: Dict,
     print("Creating candidate scores for all lines...")
     
     # Add all candidates to their respective lines
+    candidate_error = None
     for line_idx in range(len(actualFrequencies)):
         candidates = []
         
@@ -396,6 +397,7 @@ def run_assignment(temp: float, direc: str, subdirec: str, splatDict: Dict,
                 )
                 candidates.append(candidate)
             except Exception as e:
+                candidate_error = e
                 print(f"Error creating candidate at line {line_idx}, "
                       f"candidate {cand_idx}: {e}")
                 continue
@@ -405,6 +407,11 @@ def run_assignment(temp: float, direc: str, subdirec: str, splatDict: Dict,
             assigner.add_candidates_to_line(line_idx, candidates)
     
     print(f"Added candidates to {len(assigner.lines)} lines")
+
+    if candidate_error is not None and not any(line.candidates for line in assigner.lines):
+        raise RuntimeError("Could not score any molecular candidates.") from candidate_error
+    if not assigner.lines:
+        return assigner, assigner.statistics()
     
     # Run the iterative assignment
     print("\nStarting iterative assignment algorithm...")
@@ -493,7 +500,7 @@ def save_results(assigner: IterativeSpectrumAssignment,
 
 
 def run_full_assignment(temp, direc, subdirec, splatDict, valid_atoms, dv_value_freq,
-                       freq_arr, rms_arr, peak_freqs_full, consider_structure, noise_is_dict, known_molecules=None, few_line_spectrum=False):
+                       freq_arr, rms_arr, peak_freqs_full, consider_structure, noise_is_dict, known_molecules=None, few_line_spectrum=False, spectroscopy_elements=None):
     """
     Complete assignment workflow with result saving.
     
@@ -525,6 +532,7 @@ def run_full_assignment(temp, direc, subdirec, splatDict, valid_atoms, dv_value_
         known_molecules=known_molecules,
         consider_structure=consider_structure,
         noise_is_dict = noise_is_dict,
+        spectroscopy_elements=spectroscopy_elements,
         few_line_spectrum=few_line_spectrum,
     )
     

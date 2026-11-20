@@ -113,31 +113,26 @@ def load_data_get_peaks(specPath, sigOG, dv_value_freq, observation_type, bmaj, 
 
 
 
-    if peak_df is None and peak_df_3sigma is None: #did not input list of lines, will automatically find
-        data = load_obs(specPath, type = 'txt') #load spectrum
-        ll0, ul0 = find_limits(data.spectrum.frequency) #determine upper and lower limits of the spectrum
-        freq_arr = data.spectrum.frequency #frequency array of spectrum
-        int_arr = data.spectrum.Tb #intensity array of spectrum
-        if rmsInp is None:
-            rms = get_rms(int_arr)
-            rms_full_arr = np.full_like(freq_arr, rms) #setting all values of rms array at rms value, maybe should update this
+    data = load_obs(specPath, type='txt')
+    freq_arr = data.spectrum.frequency
+    int_arr = data.spectrum.Tb
+    ll0, ul0 = find_limits(freq_arr)
+    resolution = freq_arr[1] - freq_arr[0]
+    if resolution <= 0:
+        resolution = np.median(np.diff(freq_arr))
 
-        else:
-            #if type(rmsInp) == dict:
-            if isinstance(rmsInp, dict):
-                rms_full_arr = map_rms_to_spectrum(freq_arr, rmsInp) #making rms array with inputted dictionary values
-            else:
-                try:
-                    rms_full_arr = np.full_like(freq_arr, rmsInp) #setting all values of rms array at rms value
-                except:
-                    raise ValueError(f"Your rms input was incorrect. Should either be a dictionary or a number.")
+    rms = get_rms(int_arr) if rmsInp is None else rmsInp
+    if isinstance(rms, dict):
+        rms_full_arr = map_rms_to_spectrum(freq_arr, rms)
+    else:
+        try:
+            rms_full_arr = np.full_like(freq_arr, rms)
+        except (TypeError, ValueError) as error:
+            raise ValueError("Your rms input was incorrect. Should either be a dictionary or a number.") from error
 
-            rms = rmsInp
-        freq_differences = np.diff(freq_arr)
-        if freq_arr[1] - freq_arr[0] > 0:
-            resolution = freq_arr[1] - freq_arr[0]
-        else:
-            resolution = np.median(freq_differences)
+    if peak_df is None:
+        if peak_df_3sigma is not None:
+            raise ValueError("peak_df is required when supplying peak_df_3sigma.")
         #finding all peak frequencies and intensities in the spectrum at the inputted sigma level
         if rmsInp is None:
             peak_indices = find_peaks_local(freq_arr, int_arr, res=resolution, min_sep=max(resolution * ckm / np.amax(freq_arr), 2*dv_value_freq_og), sigma=sigOG, local_rms=True, rms=rmsInp) 
@@ -208,18 +203,12 @@ def load_data_get_peaks(specPath, sigOG, dv_value_freq, observation_type, bmaj, 
                 #print('len peak_indices_full')
                 #print(len(peak_indices_full))
     
-    elif peak_df is not None and peak_df_3sigma is None: #inputted list of lines but not list of 3 sigma peaks
-        data = load_obs(specPath, type = 'txt') #load spectrum
-        ll0, ul0 = find_limits(data.spectrum.frequency) #determine upper and lower limits of the spectrum
-        freq_arr = data.spectrum.frequency #frequency array of spectrum
-        int_arr = data.spectrum.Tb #intensity array of spectrum
-        if freq_arr[1] - freq_arr[0] > 0:
-            resolution = freq_arr[1] - freq_arr[0]
-        else:
-            resolution = np.median(freq_differences)
+    else:
         peak_df = pd.read_csv(peak_df)
         peak_freqs = np.array(peak_df['frequency']) #loading inputted peak data
         peak_ints = np.array(peak_df['intensity'])
+        if not len(peak_freqs):
+            raise ValueError("Error: No peaks found in the supplied peak_df CSV. Provide at least one peak.")
         # Get indices that would sort peak_ints from high to low
         sort_indices = np.argsort(peak_ints)[::-1]  # [::-1] reverses for descending order
         # Sort both arrays using these indices
@@ -227,48 +216,23 @@ def load_data_get_peaks(specPath, sigOG, dv_value_freq, observation_type, bmaj, 
         spectrum_ints = peak_ints[sort_indices]
         spectrum_indices = []
         peak_indices = []
-        rms = rmsInp
-        peak_indices_full = find_peaks_local(freq_arr, int_arr, res=resolution, min_sep=max(resolution * ckm / np.amax(freq_arr),0.5*dv_value_freq_og), sigma=3.0, local_rms = False, rms=rmsInp)
-        if len(peak_indices_full) == 0:
-                raise ValueError(f"Error: Error in peak finding. Please manually adjust the rms noise level using the rms_noise input parameter.")
-        peak_freqs_full = data.spectrum.frequency[peak_indices_full]
-        peak_ints_full = abs(data.spectrum.Tb[peak_indices_full])
-
-        #print('')
-        #print('Number of inputted peaks',len(peak_freqs))
-        #print('')
-
-
-    
-    else: #inputted list of lines and list of 3 sigma peaks
-        data = load_obs(specPath, type = 'txt') #load spectrum
-        ll0, ul0 = find_limits(data.spectrum.frequency) #determine upper and lower limits of the spectrum
-        freq_arr = data.spectrum.frequency #frequency array of spectrum
-        int_arr = data.spectrum.Tb #intensity array of spectrum
-        if freq_arr[1] - freq_arr[0] > 0:
-            resolution = freq_arr[1] - freq_arr[0]
+        if peak_df_3sigma is not None:
+            peak_indices_full = []
+            peak_df_3sigma = pd.read_csv(peak_df_3sigma)
+            peak_freqs_full = np.array(peak_df_3sigma['frequency'])
+            peak_ints_full = np.array(peak_df_3sigma['intensity'])
         else:
-            resolution = np.median(freq_differences)
-        peak_df = pd.read_csv(peak_df)
-        peak_freqs = np.array(peak_df['frequency']) #loading inputted peak data
-        peak_ints = np.array(peak_df['intensity'])
-        # Get indices that would sort peak_ints from high to low
-        sort_indices = np.argsort(peak_ints)[::-1]  # [::-1] reverses for descending order
-        # Sort both arrays using these indices
-        spectrum_freqs = peak_freqs[sort_indices]
-        spectrum_ints = peak_ints[sort_indices]
-        spectrum_indices = []
-        peak_indices_full = []
-        peak_indices = []
-        peak_df_3sigma = pd.read_csv(peak_df_3sigma)
-        peak_freqs_full = np.array(peak_df_3sigma['frequency'])
-        peak_ints_full = np.array(peak_df_3sigma['intensity'])
-        rms = rmsInp
-
-        #print('')
-        #print('Number of inputted peaks',len(peak_freqs))
-        #print('')
-
+            if isinstance(rms, dict):
+                peak_indices_full = find_peaks_by_chunks(
+                    freq_arr, int_arr, rms_full_arr, res=resolution, dv_value_freq=0.5 * dv_value_freq_og, sigma=3.0)
+            else:
+                peak_indices_full = find_peaks_local(
+                    freq_arr, int_arr, res=resolution, min_sep=max(resolution * ckm / np.amax(freq_arr), 0.5 * dv_value_freq_og),
+                    sigma=3.0, local_rms=False, rms=rmsInp)
+            if not len(peak_indices_full):
+                raise ValueError("Error: Error in peak finding. Please manually adjust the rms noise level using the rms_noise input parameter.")
+            peak_freqs_full = freq_arr[peak_indices_full]
+            peak_ints_full = abs(int_arr[peak_indices_full])
 
 
     numVals = int(50/resolution) #number of resolution units to make 50 MHz

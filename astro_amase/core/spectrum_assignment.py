@@ -291,7 +291,8 @@ class SpectralLine:
                 candidate.penalties.append('Strongest observed line of this molecule is too weak.')
         
         # Dynamic check 3: Isotopologue check (depends on detected_smiles)
-        if candidate.isotope != 0 and candidate.smiles not in context.ignore_isotopologues:
+        if (candidate.isotope != 0 and candidate.smiles not in context.ignore_isotopologues
+                and candidate.smiles not in context.spectroscopy_elements):
             if candidate.smiles not in context.detected_smiles:
                 candidate.global_score *= 0.5
                 candidate.is_isotopologue_too_strong = True
@@ -438,6 +439,7 @@ class ScoringContext:
     
     #Control whether structure relevance is calculated
     consider_structure: bool = True
+    spectroscopy_elements: Dict[str, List[str]] = field(default_factory=dict)
     
     # Dynamic state (changes as algorithm progresses)
     detected_smiles: List[str] = field(default_factory=list)
@@ -532,6 +534,8 @@ class ScoringContext:
     
     def has_invalid_atoms(self, smiles: str) -> bool:
         """Check if molecule contains invalid atoms."""
+        if smiles in self.spectroscopy_elements:
+            return any(element not in self.valid_atoms for element in self.spectroscopy_elements[smiles])
         from rdkit import Chem
         mol = Chem.MolFromSmiles(smiles)
         if mol is None:
@@ -1382,7 +1386,8 @@ class IterativeSpectrumAssignment:
                 self.recalculate_structural_scores()
             
             # Reset detected list (will rebuild it)
-            self.context.detected_smiles = []
+            # User-supplied known structures apply during scoring on every pass.
+            self.context.detected_smiles = list(self.context.known_molecules or ())
             
             # Rescore and reassign all lines
             for idx, line in enumerate(self.lines):

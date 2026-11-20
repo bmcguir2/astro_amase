@@ -12,6 +12,7 @@ molecules at the determined observational parameters using molsim and stores the
 import os
 import shutil
 import pandas as pd
+from .catalog_registry import CatalogRegistry
 import pickle
 import gzip
 import numpy as np
@@ -202,7 +203,7 @@ def create_folders_load_data(direc, tempInput):
 
 
 
-def create_full_dataset(direc, spectrum_freqs, spectrum_ints,dv_value, dataScrape,vlsr_value, dv_value_freq, consider_hyperfine, user_temp,sourceSize,ll0,ul0, freq_arr,resolution, cont_temp, ignore_mol_list, subdirec, only_detected_mols):
+def create_full_dataset(direc, spectrum_freqs, spectrum_ints,dv_value, dataScrape,vlsr_value, dv_value_freq, consider_hyperfine, user_temp,sourceSize,ll0,ul0, freq_arr,resolution, cont_temp, ignore_mol_list, subdirec, only_detected_mols, consider_structure=True, registry=None):
     """
     Generate comprehensive molecular candidate dataset for all spectral lines with simulated spectra.
     
@@ -316,8 +317,11 @@ def create_full_dataset(direc, spectrum_freqs, spectrum_ints,dv_value, dataScrap
     tickScrape = time.perf_counter()
     all_loaded = create_folders_load_data(direc, user_temp)
     
-    with gzip.open(os.path.join(direc, "transitions_database.pkl.gz"), "rb") as f: # Load the transitions database
-        database_freqs, database_errs, database_tags, database_lists, database_smiles, database_names, database_isos, database_vibs, database_forms = pickle.load(f)
+    registry = registry or CatalogRegistry(direc)
+    registry.validate_structure_mode(consider_structure, vicgae_model)
+    registry.validate_temperature(user_temp)
+    (database_freqs, database_errs, database_tags, database_lists, database_smiles,
+     database_names, database_isos, database_vibs, database_forms) = registry.index()
 
     splatDict = {}
     ignoreMolDict = {}
@@ -392,7 +396,10 @@ def create_full_dataset(direc, spectrum_freqs, spectrum_ints,dv_value, dataScrap
             database_vibs[match_idx])
 
             smi_to_test = database_smiles[match_idx]
-            if smi_to_test not in tested_smiles: #ensuring that the molecule can be properly embedded by VICGAE, otherwise ignoring
+            is_upload = database_lists[match_idx] == 'LOCAL'
+            if is_upload and not consider_structure:
+                tested_smiles[smi_to_test] = False
+            elif smi_to_test not in tested_smiles: #ensuring that the molecule can be properly embedded by VICGAE, otherwise ignoring
                 try: 
                     vicgae_model.embed_smiles(database_smiles[match_idx])
                     tested_smiles[smi_to_test] = False #no issues with embedding
@@ -404,7 +411,9 @@ def create_full_dataset(direc, spectrum_freqs, spectrum_ints,dv_value, dataScrap
                 if consider_hyperfine == True:
                     line_mols.append(match_tu)
                 else:
-                    if match_tu[6] < 200000:  # Exclude hyperfine lines
+                    is_hyperfine = (registry.by_tag['LOCAL', int(match_tu[6])].upload.hyperfine_resolved
+                                    if is_upload else match_tu[6] >= 200000)
+                    if not is_hyperfine:
                         line_mols.append(match_tu)
             else:
                 ignoreMolDict[database_names[match_idx]] = True
@@ -420,7 +429,7 @@ def create_full_dataset(direc, spectrum_freqs, spectrum_ints,dv_value, dataScrap
         jpl_with_matching_cdms = [tup for tup in jpl_tuples if (tup[2], tup[5], tup[8]) in cdms_keys]
 
 
-        tag_to_tuple = {tup[6]: tup for tup in line_mols}
+        tag_to_tuple = {tup[6]: tup for tup in line_mols if tup[7] == 'CDMS'}
         non_hyperfine_match = []
 
         for ta in tag_to_tuple:
@@ -448,7 +457,7 @@ def create_full_dataset(direc, spectrum_freqs, spectrum_ints,dv_value, dataScrap
         #adding molecule information to the dataset row
         for lmf in line_mols_final:
             outsider = False
-            if '.' not in lmf[2] and 'NEED' not in lmf[2]:
+            if lmf[7] == 'LOCAL' or ('.' not in lmf[2] and 'NEED' not in lmf[2]):
                 #if outsider == False:
                 row.append(lmf[0])
                 row.append(lmf[0])
@@ -481,87 +490,27 @@ def create_full_dataset(direc, spectrum_freqs, spectrum_ints,dv_value, dataScrap
     
     #for all molecules that were found as candidates for any of the lines in the spectrum, simulate their spectra at the inputted and determined parameters
     for asm in allScrapedMols:
-        dfFreq = pd.DataFrame()
-        if asm[2] == 'CDMS':
-            tagString = f"{asm[1]:06d}"
-            molDirec = all_loaded['cdms']['directory'] + tagString + '.pkl'
-            with open(molDirec, 'rb') as md:
-                mol = pickle.load(md)
-
-            #simulate the spectrum for the molecule
-            sim = Simulation(mol = mol,
-                    ll = ll0,
-                    ul = ul0,
-                    observation = dataScrape,
-                    source = src,
-                    line_profile = 'Gaussian',
-                    use_obs = True) 
-                
-            if len(sim.spectrum.freq_profile) > 0:
-                        #find peaks in simulated spectrum.
-                        peak_indicesIndiv = find_peaks(sim.spectrum.freq_profile, sim.spectrum.int_profile, res=resolution, min_sep=max(resolution * ckm / np.amax(freq_arr),0.5*dv_value_freq), is_sim=True)
-                        if len(peak_indicesIndiv) > 0:
-                            peak_freqs2 = sim.spectrum.freq_profile[peak_indicesIndiv]
-                            peak_ints2 = abs(sim.spectrum.int_profile[peak_indicesIndiv])
-                            if peak_ints2 is not None:
-                                freqs = peak_freqs2
-                                ints = peak_ints2
-                                dfFreq['frequencies'] = freqs
-                                dfFreq['intensities'] = ints
-                                splatDict[(asm[0],'CDMS')] = (freqs,ints) #store the frequencies and intensities in a dictionary
-                                saveName = os.path.join(all_loaded['paths']['splat'], str(catCount) + '.csv')
-                                dfFreq.to_csv(saveName)
-                                savedCatIndices.append(catCount)
-                                savedForms.append(asm[0])
-                                savedTags.append(asm[1])
-                                savedList.append('CDMS')
-                            else:
-                                no_line_mols.append(asm)
-                        else: 
-                            no_line_mols.append(asm)
-            else:
-                no_line_mols.append(asm)
-                    
-        elif asm[2] == 'JPL':
-            tagString = str(asm[1])
-            molDirec = all_loaded['jpl']['directory'] + tagString + '.pkl'
-            with open(molDirec, 'rb') as md: #upload JPL molecule
-                mol = pickle.load(md)
-            #simulate the spectrum for the molecule
-            sim = Simulation(mol = mol,
-                    ll = ll0,
-                    ul = ul0,
-                    observation = dataScrape,
-                    source = src,
-                    line_profile = 'Gaussian',
-                    use_obs = True) 
-                
-            if len(sim.spectrum.freq_profile) > 0:
-                        #find peaks in simulated spectrum.
-                        peak_indicesIndiv = find_peaks(sim.spectrum.freq_profile, sim.spectrum.int_profile, res=resolution, min_sep=max(resolution * ckm / np.amax(freq_arr),0.5*dv_value_freq), is_sim=True)
-                        if len(peak_indicesIndiv) > 0:
-                            peak_freqs2 = sim.spectrum.freq_profile[peak_indicesIndiv]
-                            peak_ints2 = abs(sim.spectrum.int_profile[peak_indicesIndiv])
-                            if peak_ints2 is not None:
-                                freqs = peak_freqs2
-                                ints = peak_ints2
-                                dfFreq['frequencies'] = freqs
-                                dfFreq['intensities'] = ints
-                                splatDict[(asm[0],'JPL')] = (freqs,ints) #store the frequencies and intensities in a dictionary
-                                saveName = os.path.join(all_loaded['paths']['splat'], str(catCount) + '.csv')
-                                dfFreq.to_csv(saveName)
-
-                                savedCatIndices.append(catCount)
-                                savedForms.append(asm[0])
-                                savedTags.append(asm[1])
-                                savedList.append('JPL')
-                            else:
-                                no_line_mols.append(asm)
-                        else:
-                            no_line_mols.append(asm)
-            else:
-                no_line_mols.append(asm)
-
+        label, tag, source_name, smiles = asm
+        mol = registry.by_tag[source_name, int(tag)].load()
+        sim = Simulation(mol=mol, ll=ll0, ul=ul0, observation=dataScrape,
+                         source=src, line_profile='Gaussian', use_obs=True)
+        peak_indices = []
+        if len(sim.spectrum.freq_profile):
+            peak_indices = find_peaks(
+                sim.spectrum.freq_profile, sim.spectrum.int_profile, res=resolution,
+                min_sep=max(resolution * ckm / np.amax(freq_arr), 0.5 * dv_value_freq), is_sim=True)
+        if len(peak_indices):
+            frequencies = sim.spectrum.freq_profile[peak_indices]
+            intensities = np.abs(sim.spectrum.int_profile[peak_indices])
+            splatDict[label, source_name] = (frequencies, intensities)
+            frame = pd.DataFrame({'frequencies':frequencies, 'intensities':intensities})
+            frame.to_csv(os.path.join(all_loaded['paths']['splat'], f'{catCount}.csv'))
+            savedCatIndices.append(catCount)
+            savedForms.append(label)
+            savedTags.append(tag)
+            savedList.append(source_name)
+        else:
+            no_line_mols.append(asm)
         catCount += 1
 
     newMatrixNext = []

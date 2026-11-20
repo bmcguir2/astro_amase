@@ -30,6 +30,9 @@ Performance optimizations:
 
 
 import pandas as pd
+import json
+from ..data.catalog_registry import CatalogRegistry
+from ..output.catalog_names import catalog_file_stems
 import numpy as np
 import os
 import pickle 
@@ -39,6 +42,7 @@ from bokeh.models import (
     HoverTool, CheckboxGroup, CustomJS, Button, ColumnDataSource
 )
 from bokeh.layouts import column, row
+from bokeh.resources import INLINE
 from bokeh.plotting import figure, output_file, save
 from bokeh.models import HoverTool, Button, CustomJS, CheckboxGroup
 from scipy.optimize import least_squares
@@ -676,10 +680,12 @@ def plot_simulation_vs_experiment_html_bokeh_compact_float32(
     gc.collect()
     print("Starting plot generation (memory cleanup complete)")
 
-    # Convert experimental spectrum to float32
-    freqs = observation.spectrum.frequency.astype(np.float32)
-    y_exp = y_exp.astype(np.float32)
-    total_sim = np.zeros_like(y_exp, dtype=np.float32)
+    # Preserve the original grid and residual exactly when no model was fitted.
+    freqs = observation.spectrum.frequency
+    if mol_list:
+        freqs = freqs.astype(np.float32)
+        y_exp = y_exp.astype(np.float32)
+    total_sim = np.zeros_like(y_exp)
     individual_sims = []
     maxSimInts = []
 
@@ -712,6 +718,8 @@ def plot_simulation_vs_experiment_html_bokeh_compact_float32(
 
 
     # Individual molecules
+    output_labels = [labels[i] if i < len(labels) else f"Molecule {i+1}" for i in range(len(mol_list))]
+    stems = catalog_file_stems(output_labels) if save_individual_contributions else {}
     for i, (mol, col) in enumerate(zip(mol_list, best_columns)):
         src = Source(
             Tex=temp, column=col, size=sourceSize,
@@ -734,10 +742,10 @@ def plot_simulation_vs_experiment_html_bokeh_compact_float32(
         total_sim += spec
         maxSimInts.append(np.max(spec))
 
-        mol_name = labels[i] if i < len(labels) else f"Molecule {i+1}"
+        mol_name = output_labels[i]
         if save_individual_contributions:
             save_indiv_direc = os.path.join(subdirec,'individual_contributions')
-            np.savetxt(os.path.join(save_indiv_direc, mol_name + '_simulated_spectrum.txt'), np.column_stack((freqs, spec)), delimiter='\t')
+            np.savetxt(os.path.join(save_indiv_direc, stems[mol_name] + '_simulated_spectrum.txt'), np.column_stack((freqs, spec)), delimiter='\t')
 
 
 
@@ -769,6 +777,9 @@ def plot_simulation_vs_experiment_html_bokeh_compact_float32(
 
     if save_individual_contributions:
         save_indiv_direc = os.path.join(subdirec,'individual_contributions')
+        filenames = {label: stem + "_simulated_spectrum.txt" for label, stem in stems.items()}
+        with open(os.path.join(save_indiv_direc, "catalog_files.json"), "w", encoding="utf-8") as stream:
+            json.dump(filenames, stream, indent=2, ensure_ascii=False)
         np.savetxt(os.path.join(save_indiv_direc, 'total_simulated_spectrum.txt'), np.column_stack((freqs, total_sim)), delimiter='\t')
         remaining_intensity = y_exp - total_sim
         np.savetxt(os.path.join(save_indiv_direc, 'simulation_residual.txt'), np.column_stack((freqs, remaining_intensity)), delimiter='\t')
@@ -817,7 +828,7 @@ def plot_simulation_vs_experiment_html_bokeh_compact_float32(
         
         filename = os.path.join(subdirec, filename)
         output_file(filename)
-        save(layout)
+        save(layout, resources=None if mol_list else INLINE)
         
         # Check file size to detect potential truncation
         filesize_mb = os.path.getsize(filename) / (1024 * 1024)
@@ -826,19 +837,21 @@ def plot_simulation_vs_experiment_html_bokeh_compact_float32(
     # Peak analysis
     peak_results = []
     for peak, exp_intensity_max in zip(peak_freqs, peak_intensities):
-        idxs = np.where((freqs >= peak - peak_window) & (freqs <= peak + peak_window))[0]
-        if len(idxs) == 0:
-            continue
+        total_sim_intensity = 0.0
+        carriers = []
+        if individual_sims:
+            idxs = np.where((freqs >= peak - peak_window) & (freqs <= peak + peak_window))[0]
+            if len(idxs) == 0:
+                continue
 
-        sim_intensities = [np.max(sim[idxs]) for sim in individual_sims]
-        total_sim_intensity = np.max(total_sim[idxs])
-        threshold = 0.1 * exp_intensity_max
-
-        carriers = [
-            labels[i] if i < len(labels) else f"Molecule {i+1}"
-            for i, inten in enumerate(sim_intensities)
-            if inten >= threshold and inten > 0
-        ] or ['Unidentified']
+            sim_intensities = [np.max(sim[idxs]) for sim in individual_sims]
+            total_sim_intensity = np.max(total_sim[idxs])
+            threshold = 0.1 * exp_intensity_max
+            carriers = [
+                labels[i] if i < len(labels) else f"Molecule {i+1}"
+                for i, inten in enumerate(sim_intensities)
+                if inten >= threshold and inten > 0
+            ]
 
         diff = exp_intensity_max - total_sim_intensity
         peak_results.append({
@@ -846,7 +859,7 @@ def plot_simulation_vs_experiment_html_bokeh_compact_float32(
             'experimental_intensity_max': float(exp_intensity_max),
             'total_simulated_intensity': float(total_sim_intensity),
             'difference': float(diff),
-            'carrier_molecules': carriers
+            'carrier_molecules': carriers or ['Unidentified']
         })
 
     peak_results.sort(key=lambda x: x['experimental_intensity_max'], reverse=True)
@@ -1005,20 +1018,7 @@ def full_fit(direc, subdirec, assigner, dataScrape, tempInput, dv_value, dv_valu
     
     """
 
-    cdmsDirec = os.path.join(direc, 'cdms_pkl/')
-    cdmsFullDF = pd.read_csv(os.path.join(direc, 'all_cdms_final_official.csv'))
-    df_cdms = cdmsFullDF
-    cdmsSmiles = list(cdmsFullDF['smiles'])
-    cdmsMols = list(cdmsFullDF['mol'])
-    cdms_mols = list(df_cdms['mol'])
-    cdms_tags = list(df_cdms['tag'])
-    jplDirec = os.path.join(direc, 'jpl_pkl/')
-    jplFullDF = pd.read_csv(os.path.join(direc, 'all_jpl_final_official.csv'))
-    df_jpl = jplFullDF
-    jplSmiles = list(jplFullDF['smiles'])
-    jplMols = list(jplFullDF['name'])
-    jpl_mols = list(df_jpl['name'])
-    jpl_tags = list(df_jpl['tag'])
+    registry = CatalogRegistry(direc)
     mol_list = []
     labels = []
 
@@ -1027,16 +1027,14 @@ def full_fit(direc, subdirec, assigner, dataScrape, tempInput, dv_value, dv_valu
     assignedMols, blended_single_mols = get_assigned_molecules(assigner)
 
 
-    for i in force_include_mols:
-        if i in cdms_mols:
-            if (i, 'CDMS') not in assignedMols:
-                assignedMols.append((i, 'CDMS'))
-        elif i in jpl_mols:
-            if (i,'JPL') not in assignedMols:
-                assignedMols.append((i,'JPL'))
-        else:
-            warnings.warn(f"{i} was forced to be included in the fit but is not found in the CDMS or JPL databases. Please check the inputted molecule name.", UserWarning)
-    
+    for label in force_include_mols:
+        if label not in registry.by_label:
+            warnings.warn(f"Requested fit inclusion is absent from the active catalogs: {label}", UserWarning)
+            continue
+        entry = registry.entry(label)
+        if (label, entry.source) not in assignedMols:
+            assignedMols.append((label, entry.source))
+
     blended_mols_final = []
     # Hyperfine quality control
     delList1 = []
@@ -1085,66 +1083,25 @@ def full_fit(direc, subdirec, assigner, dataScrape, tempInput, dv_value, dv_valu
 
     assignedMols = list(result.items())
 
-    if len(assignedMols) == 0:
-        raise ValueError(
-            "No molecules were assigned. Fitting will therefore fail.")
-
-
     # Retrieving molecule objects
-    for x in assignedMols:
-        if x[1] == 'CDMS':
-            idx = cdms_mols.index(x[0])
-            tag = cdms_tags[idx]
-            tagString = f"{tag:06d}"
-            molDirec = cdmsDirec + tagString + '.pkl'
-            with open(molDirec, 'rb') as md:
-                mol = pickle.load(md)
-            mol_list.append(mol)
-            labels.append(x[0])
-        elif x[1] == 'JPL':
-            idx = jpl_mols.index(x[0])
-            tag = jpl_tags[idx]
-            tagString = str(tag)
-            molDirec = jplDirec + tagString + '.pkl'
-            with open(molDirec, 'rb') as md:
-                mol = pickle.load(md)
-            mol_list.append(mol)
-            labels.append(x[0])
-        else:
-            if x[0] in cdms_mols:
-                idx = cdms_mols.index(x[0])
-                tag = cdms_tags[idx]
-                tagString = f"{tag:06d}"
-                molDirec = cdmsDirec + tagString + '.pkl'
-                with open(molDirec, 'rb') as md:
-                    mol = pickle.load(md)
-                mol_list.append(mol)
-                labels.append(x[0])
-            elif x[0] in jpl_mols:
-                idx = jpl_mols.index(x[0])
-                tag = jpl_tags[idx]
-                tagString = str(tag)
-                molDirec = jplDirec + tagString + '.pkl'
-                with open(molDirec, 'rb') as md:
-                    mol = pickle.load(md)
-                mol_list.append(mol)
-                labels.append(x[0])
-            else:
-                print('ignoring')
-                print(x)
+    for label, source_name in assignedMols:
+        entry = registry.entry(label, source_name) if source_name in registry.by_label.get(label, {}) else registry.entry(label)
+        mol_list.append(entry.load())
+        labels.append(label)
 
-    # Initializing column densities 
     if column_density_range[0] == 1.e10 and column_density_range[1] == 1.e20:
         first_guess = 1.e14
     else:
-        first_guess = (column_density_range[0]+column_density_range[1])/2
+        first_guess = (column_density_range[0] + column_density_range[1]) / 2
     initial_columns = np.full(len(mol_list), first_guess)
     bounds = (np.full(len(mol_list), column_density_range[0]), np.full(len(mol_list), column_density_range[1]))
     y_exp = np.array(dataScrape.spectrum.Tb)
 
     initial_labels = list(labels)  # snapshot for diagnostics
 
-    if number_iterations == 0:
+    if not labels:
+        print('No molecular assignments entered fitting.')
+    elif number_iterations == 0:
         number_iterations = 100000 #set so that it will loop until convergence
         print('\nWill conduct iterations of fitting until no more molecules are removed.')
     else:
@@ -1152,40 +1109,42 @@ def full_fit(direc, subdirec, assigner, dataScrape, tempInput, dv_value, dv_valu
 
     converged = False
 
-    #print(labels)
-
     # ========== FIRST ITERATION ==========
-    if number_iterations != 100000:
-        print(f'Fitting iteration 1/{number_iterations}')
-    else:
-        print('Fitting Iteration 1')
+    lookup_tables = {}
+    fitted_columns = np.empty(0)
+    if labels:
+        if number_iterations != 100000:
+            print(f'Fitting iteration 1/{number_iterations}')
+        else:
+            print('Fitting Iteration 1')
 
-    lookup_tables, result = fit_spectrum_lookup(
-        mol_list=mol_list,
-        labels=labels,
-        initial_columns=initial_columns,
-        y_exp=y_exp,
-        bounds=bounds,
-        tempInput=tempInput,
-        dv_value=dv_value,
-        cont=cont,
-        ll0=ll0,
-        ul0=ul0,
-        dataScrape=dataScrape,
-        column_range=(column_density_range[0], column_density_range[1]),
-        n_grid_points=30,
-        vlsr_value=vlsr_value,
-        source_size=sourceSize,
-        stricter=stricter
-    )
-
-    fitted_columns = result.x
+        lookup_tables, result = fit_spectrum_lookup(
+            mol_list=mol_list,
+            labels=labels,
+            initial_columns=initial_columns,
+            y_exp=y_exp,
+            bounds=bounds,
+            tempInput=tempInput,
+            dv_value=dv_value,
+            cont=cont,
+            ll0=ll0,
+            ul0=ul0,
+            dataScrape=dataScrape,
+            column_range=(column_density_range[0], column_density_range[1]),
+            n_grid_points=30,
+            vlsr_value=vlsr_value,
+            source_size=sourceSize,
+            stricter=stricter
+        )
+        fitted_columns = result.x
     
     # ========== ITERATIVE FILTERING AND FITTING ==========
     # Track all deleted molecules across iterations
     all_delMols = []
     
     for iteration in range(2, number_iterations + 1): #loop through (fitting_iterations - 1) times
+        if not labels:
+            break
         if number_iterations != 100000:
             print(f'\nFiltering molecules before iteration {iteration}/{number_iterations}')
         else:
@@ -1448,6 +1407,9 @@ def full_fit(direc, subdirec, assigner, dataScrape, tempInput, dv_value, dv_valu
         
         lookup_tables = filtered_lookup
 
+        if not labels:
+            fitted_columns = initial_columns_filtered
+            break
 
         if iteration > 2 and len(delMols) == 0: #checking if converged after the second iteration.
             if number_iterations == 100000: #check if looping until convergence
@@ -1477,7 +1439,7 @@ def full_fit(direc, subdirec, assigner, dataScrape, tempInput, dv_value, dv_valu
     # Run filtering check one more time to see if molecules would still be removed
     #converged is only true if num_iterations parameter is set to 0 and it converged.
     #If thats the case, don't need an additional check
-    if converged == False: 
+    if labels and not converged:
         print(f'\nChecking if additional iterations would be beneficial...')
         
         fitted_spectrum = get_fitted_spectrum_lookup(fitted_columns, labels, lookup_tables)
@@ -1675,6 +1637,8 @@ def full_fit(direc, subdirec, assigner, dataScrape, tempInput, dv_value, dv_valu
             print(f"  No additional molecules would be removed. Fitting has converged.")
 
     # ========== FINAL OUTPUT (after all iterations) ==========
+    if not labels:
+        print('No molecular carriers remain. Reporting detected peaks as unidentified.')
 
     # Free memory
     try:
@@ -1704,12 +1668,7 @@ def full_fit(direc, subdirec, assigner, dataScrape, tempInput, dv_value, dv_valu
     outputBlended = []
 
     for l in labels:
-        if l in cdmsMols:
-            idx = cdmsMols.index(l)
-            outputSmiles.append(cdmsSmiles[idx])
-        elif l in jplMols:
-            idx = jplMols.index(l)
-            outputSmiles.append(jplSmiles[idx])
+        outputSmiles.append(registry.entry(l).smiles)
 
         if l in molecule_assignment_dict:
             outputLines.append(molecule_assignment_dict[l][0])

@@ -1753,6 +1753,10 @@ def find_vlsr(vlsr_choice, vlsrInput, temp_choice, tempInput, direc, freq_arr, i
         if bandwidth < 15000: #always setting extra_vlsr_checks to True if low bandwidth
             extra_vlsr_checks = True 
 
+        from ..data.catalog_registry import CatalogRegistry
+        registry = CatalogRegistry(direc)
+        registry.validate_band(freq_arr)
+        registry.validate_temperature(tempInput)
         #dictionary that links isotoplogues to their parent molecules
         parentDict = {'13CS, v = 0, 1': [('CS, v = 0 - 4', 44501)], 'CH318OH, vt le 2': [('CH3OH, vt = 0 - 2', 32504)], 'HDCO': [('H2CO', 30501)], 'H2C18O': [('H2CO', 30501)], 'N18O': [('NO, v = 0', 30517)], 'H213CO': [('H2CO', 30501)], 'H2C17O': [('H2CO', 30501)], '13CH3OH, vt = 0, 1': [('CH3OH, vt = 0 - 2', 32504)], 'CH2DCN': [('CH3CN, v = 0', 41505)], 'HDS': [('H2S', 34502)], '15NH3': [('NH3, v = 0', 17506)], 'DC3N, v = 0': [('HC3N, (0,0,0,0)', 51501)], 'H13CCCN, v = 0': [('HC3N, (0,0,0,0)', 51501)], 'HC13CCN, v = 0': [('HC3N, (0,0,0,0)', 51501)], 'HCC13CN, v = 0': [('HC3N, (0,0,0,0)', 51501)], 'S18O': [('SO, v = 0', 48501)], '18OCS': [('OCS, v = 0', 60503)], 'OC34S': [('OCS, v = 0', 60503)], 'O13CS': [('OCS, v = 0', 60503)], '34SO': [('SO, v = 0', 48501)], 'c-13CC2H2': [('c-C3H2', 38508)], 'c-CC13CH2': [('c-C3H2', 38508)], '13CH3CN, v = 0': [('CH3CN, v = 0', 41505)], 'CH313CN, v = 0': [('CH3CN, v = 0', 41505)], 'H234S': [('H2S', 34502)], 'C34S, v = 0, 1': [('CS, v = 0 - 4', 44501)], 'DCO+': [('HCO+, v = 0', 29507)], 'DCN, v = 0': [('HCN, v = 0', 27501)], 'H13CN, v = 0': [('HCN, v = 0', 27501)], 'H13CO+': [('HCO+, v = 0', 29507)], 'D2S': [('H2S', 34502), ('HDS', 35502)], 'C18O': [('CO, v = 0', 28503)], '13CO': [('CO, v = 0', 28503)]}
         igMols = ['SO, a 1Î\x94, v = 0, 1', 'c-C3H2', 'c-CC13CH2','c-13CC2H2', 'c-C3HD'] #list of molecules to filter out due to quality control, 'c-CC13CH2','c-13CC2H2', 'c-C3H2', 'c-C3HD'
@@ -1765,9 +1769,19 @@ def find_vlsr(vlsr_choice, vlsrInput, temp_choice, tempInput, direc, freq_arr, i
         #mask_threshold = 5*rmsInp
         mask_threshold = 5*rms_original
         #uploading database of all transitions of molecules that are considered for VLSR determiation
-        with gzip.open(os.path.join(direc,"vlsr_database_logint.pkl.gz"), "rb") as f: 
-            database_freqs, database_errs, database_tags, database_lists, database_smiles, database_names, database_isos, database_vibs, database_forms, database_logints = pickle.load(f)
+        (database_freqs, database_errs, database_tags, database_lists, database_smiles, database_names,
+         database_isos, database_vibs, database_forms, database_logints) = registry.index(velocity=True)
+        unavailable_parents = {name for name, parents in parentDict.items()
+                               if any(('CDMS', tag) not in registry.by_tag for _,tag in parents)}
 
+        def load_candidate(name, source, tag):
+            key = (name, source)
+            if key not in molDict:
+                molDict[key] = registry.by_tag[source, int(tag)].load()
+                if extra_vlsr_checks and name not in unavailable_parents:
+                    for label, parent_tag in parentDict.get(name, ()):
+                        if (label, 'CDMS') not in molDict:
+                            molDict[label, 'CDMS'] = registry.by_tag['CDMS', parent_tag].load()
 
         center_freq = np.median(freq_arr)
         #min_freq_threshold = min(vlsr_range)*(max(freq_arr)/300000) #calculating approximately the maximum vlsr threshold in frequency
@@ -1812,21 +1826,7 @@ def find_vlsr(vlsr_choice, vlsrInput, temp_choice, tempInput, direc, freq_arr, i
                     database_names[match_idx], database_forms[match_idx], database_smiles[match_idx], database_freqs[match_idx],
                     database_errs[match_idx], database_isos[match_idx], database_tags[match_idx], database_lists[match_idx],
                     database_vibs[match_idx],database_logints[match_idx]) #tuple of matched molecule data
-                    if (database_names[match_idx], database_lists[match_idx]) not in molDict:
-                        if database_lists[match_idx] == 'CDMS': #upload CDMS molecule and load into molsim object
-                            molPath = os.path.join(direc, 'cdms_pkl', f"{database_tags[match_idx]:06d}.pkl")
-                            with open(molPath, 'rb') as md:
-                                mol = pickle.load(md)
-                        molDict[(database_names[match_idx], database_lists[match_idx])] = mol #add molecule to molDict
-                        if database_names[match_idx] in parentDict: #if the molecule is an isotopologue, add the parent molecule to molDict too
-                            for pa in parentDict[database_names[match_idx]]:
-                                if (pa[0],'CDMS') not in molDict:
-                                    molPath = os.path.join(direc, 'cdms_pkl', f"{pa[1]:06d}.pkl")
-                                    with open(molPath, 'rb') as md:
-                                        mol = pickle.load(md)
-                                    molDict[(pa[0],'CDMS')] = mol   
-                                    #allNames.append(pa)
-                    
+                    load_candidate(database_names[match_idx], database_lists[match_idx], database_tags[match_idx])
                     #consider_hyperfine = False
                     #only consider strong lines with logint in .cat file > -5.1 (determined through some testing)
                     #print(match_tu)
@@ -1858,21 +1858,12 @@ def find_vlsr(vlsr_choice, vlsrInput, temp_choice, tempInput, direc, freq_arr, i
                     hasOutsideMol = True
                     outside_mols.append(m)
             if hasOutsideMol:
-                with gzip.open(os.path.join(direc, "transitions_database.pkl.gz"), "rb") as f: # Load the transitions database
-                    database_freqs_full, database_errs_full, database_tags_full, database_lists_full, database_smiles_full, database_names_full, database_isos_full, database_vibs_full, database_forms_full = pickle.load(f)
-                
-                unique_pairs = np.unique(np.column_stack((database_names_full, database_lists_full)), axis=0)
-            
-                for target_value in outside_mols:
-                    matching_pairs = unique_pairs[unique_pairs[:, 0] == target_value]
-                    has_CDMS1 = np.any(matching_pairs[:, 1] == 'CDMS')
-                    has_JPL1 = np.any(matching_pairs[:, 1] == 'JPL')
-
-                    if has_CDMS1 and has_JPL1:
-                        outside_mols_comb[target_value] = 'CDMS'
-                    else:
-                        outside_mols_comb[target_value] = matching_pairs[0][1]
-
+                (database_freqs_full, database_errs_full, database_tags_full, database_lists_full, database_smiles_full,
+                 database_names_full, database_isos_full, database_vibs_full, database_forms_full) = registry.index()
+                for name in outside_mols:
+                    if name not in registry.by_label:
+                        raise ValueError(f"Requested VLSR tracer is absent from the active catalogs: {name}")
+                    outside_mols_comb[name] = registry.entry(name).source
 
             for i in range(len(sorted_peak_freqs)): #loop through all determined peaks
                 line_mols = []
@@ -1884,20 +1875,7 @@ def find_vlsr(vlsr_choice, vlsrInput, temp_choice, tempInput, direc, freq_arr, i
                         database_names[match_idx], database_forms[match_idx], database_smiles[match_idx], database_freqs[match_idx],
                         database_errs[match_idx], database_isos[match_idx], database_tags[match_idx], database_lists[match_idx],
                         database_vibs[match_idx],database_logints[match_idx])
-                        if (database_names[match_idx], database_lists[match_idx]) not in molDict:
-                            if database_lists[match_idx] == 'CDMS':
-                                molPath = os.path.join(direc, 'cdms_pkl', f"{database_tags[match_idx]:06d}.pkl")
-                                with open(molPath, 'rb') as md:
-                                    mol = pickle.load(md)
-                            molDict[(database_names[match_idx], database_lists[match_idx])] = mol
-                            if database_names[match_idx] in parentDict:
-                                for pa in parentDict[database_names[match_idx]]:
-                                    if (pa[0],'CDMS') not in molDict:
-                                        molPath = os.path.join(direc, 'cdms_pkl', f"{pa[1]:06d}.pkl")
-                                        with open(molPath, 'rb') as md:
-                                            mol = pickle.load(md)
-                                        molDict[(pa[0],'CDMS')] = mol   
-                        
+                        load_candidate(database_names[match_idx], database_lists[match_idx], database_tags[match_idx])
                         if consider_hyperfine == True:
                             if match_tu[-1] > -5.1:
                                 line_mols.append(match_tu)
@@ -1920,19 +1898,7 @@ def find_vlsr(vlsr_choice, vlsrInput, temp_choice, tempInput, direc, freq_arr, i
                             database_errs_full[match_idx], database_isos_full[match_idx], database_tags_full[match_idx], database_lists_full[match_idx],
                             database_vibs_full[match_idx],0)
 
-                            if (database_names_full[match_idx], database_lists_full[match_idx]) not in molDict:
-                                    if database_lists_full[match_idx] == 'CDMS':
-                                        molPath = os.path.join(direc, 'cdms_pkl', f"{database_tags_full[match_idx]:06d}.pkl")
-                                        with open(molPath, 'rb') as md:
-                                            mol = pickle.load(md)
-                                        molDict[(database_names_full[match_idx], database_lists_full[match_idx])] = mol
-
-                                    if database_lists_full[match_idx] == 'JPL':
-                                        molPath = os.path.join(direc, 'jpl_pkl', str(database_tags_full[match_idx]) + '.pkl')
-                                        with open(molPath, 'rb') as md:
-                                                mol = pickle.load(md)
-                                        molDict[(database_names_full[match_idx], database_lists_full[match_idx])] = mol
-
+                            load_candidate(database_names_full[match_idx], database_lists_full[match_idx], database_tags_full[match_idx])
                             if match_tu not in line_mols:
                                 line_mols.append(match_tu)
 
@@ -1944,12 +1910,17 @@ def find_vlsr(vlsr_choice, vlsrInput, temp_choice, tempInput, direc, freq_arr, i
         #for g in allCans:
         #    print(g)
         maxPeakInt = max(sorted_peak_ints) #storing the maximum peak intensity of the spectrum
+        missing_used = sorted({cand[0] for group in allCans for cand in group if cand[0] in unavailable_parents})
+        if extra_vlsr_checks and missing_used:
+            print("Velocity tracers omitted because their required parent catalogs are inactive: " + ", ".join(missing_used))
         allCansFiltered = []
         for i in range(len(allCans)): #loop through all candidates for each peak frequency
             indivCans = []
             indivVlsrs = []
             already_indiv = []
             for can in allCans[i]:
+                if extra_vlsr_checks and can[0] in unavailable_parents:
+                    continue
                 indivFreq = can[3]
                 vlsr_needed = calc_needed_vlsr(sorted_peak_freqs[i], indivFreq) #calculate the needed vlsr for the candidate to match the peak frequency
                 #print(vlsr_needed)
@@ -2112,15 +2083,16 @@ def find_vlsr(vlsr_choice, vlsrInput, temp_choice, tempInput, direc, freq_arr, i
                 top_bins, top_bin
             )
 
-        #storing the molecules that have a transition contributing to the top densest window
+        # Keep each candidate's catalog source when choosing velocity tracers.
+        selected_catalogs = set()
         for z in allCansFiltered:
             if z[1] <= top_bin[2] and z[1] >= top_bin[1]:
-                if z[0][0] not in labels:
-                    labels.append(z[0][0])
-                    if (z[0][0], 'CDMS') in molDict:
-                        mol_list.append(molDict[z[0][0], 'CDMS'])
-                    elif (z[0][0], 'JPL') in molDict:
-                        mol_list.append(molDict[z[0][0], 'JPL'])
+                candidate = z[0]
+                key = (candidate[0], candidate[-3])
+                if key not in selected_catalogs:
+                    selected_catalogs.add(key)
+                    labels.append(candidate[0])
+                    mol_list.append(molDict[key])
         
         if temp_choice == False:
             #setting initial column densities for fit
@@ -2133,9 +2105,7 @@ def find_vlsr(vlsr_choice, vlsrInput, temp_choice, tempInput, direc, freq_arr, i
 
             column_bounds = ([1e10] * len(mol_list), [1e25] * len(mol_list))
             vlsr_bounds = (top_bin[1], top_bin[2])
-            minTempBound = max(0, tempInput - 100) # Ensure temperature is not negative 
-            maxTempBound = min(500, tempInput + 100) #don't let temperature exceed 500 or 100 plus the input temperature
-            temp_bounds = (minTempBound, maxTempBound)
+            temp_bounds = registry.temperature_interval(max(0, tempInput - 100), min(500, tempInput + 100))
             lower_bounds = column_bounds[0] + [vlsr_bounds[0], temp_bounds[0]]
             upper_bounds = column_bounds[1] + [vlsr_bounds[1], temp_bounds[1]]
             # Use scipy's least_squares to fit the model to the data to determine the best column densities, vlsr, and temperature
@@ -2148,7 +2118,7 @@ def find_vlsr(vlsr_choice, vlsrInput, temp_choice, tempInput, direc, freq_arr, i
                 verbose=0)
 
             # Extract the best-fit parameters
-            best_temp = round(result.x[-1],1)
+            best_temp = float(np.clip(round(result.x[-1], 1), *temp_bounds))
             tempInput = best_temp
             best_vlsr = result.x[-2]
             best_columns = result.x[:-2]  # All but last two are column densities
