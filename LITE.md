@@ -2,7 +2,7 @@
 
 AstroAmase Lite fits astronomical spectra using a selected subset of the Astro AMASE molecular catalogs. This branch contains a staged research draft. Open the [guide](docs/index.html) or download the [Colab notebook](docs/downloads/AstroAmase_Lite_Integrated.ipynb).
 
-The standard CPU workflow runs in the user's own Google Colab session. It gets pinned source files from the public data deposit, builds the active database in the runtime, and records the catalog selection with each fit. The general Draft 02 database contains 333 catalogs for 231 identities. The PILS candidate contains 344 catalogs for 242 identities and applies only within 329150.112845–362899.138030 MHz. The notebook can select individually reviewed additions, exclude native entries, and accept new text catalogs.
+The standard CPU workflow runs in the user's own Google Colab session. It gets pinned source files from the public data deposit, builds the active database in the runtime, and records the catalog selection with each fit. The reference Draft 02 general database contains 333 catalogs for 231 identities. The newer general notebook includes 340 catalogs by default and accepts three more ground-state options for SO, H₂S and N₂H⁺. The two PILS notebooks offer 346 or 347 catalogs and an extended 352-catalog selection. The guide links each notebook and lists its checksum in [editions.json](docs/editions.json). The PILS candidate contains 344 catalogs for 242 identities and applies only within 329150.112845–362899.138030 MHz. The notebook can select individually reviewed additions, exclude native entries, and accept new text catalogs.
 
 ## First fit
 

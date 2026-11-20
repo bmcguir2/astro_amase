@@ -1,0 +1,38 @@
+{
+  "downloads/AstroAmase_Lite_Integrated.ipynb": {
+    "edition": "General reference",
+    "example_catalog_counts": [
+      295,
+      333,
+      344
+    ],
+    "bytes": 4508327,
+    "sha256": "d74206f8cded51b7ad4fe4e332f2fb3e3e823d5efe4d44b3977510891f27571d"
+  },
+  "downloads/AstroAmase_Lite_General_340_Ground_Options_v1.ipynb": {
+    "edition": "General ground-state candidate",
+    "example_catalog_counts": [
+      340,
+      343
+    ],
+    "bytes": 2991633,
+    "sha256": "89c46a080146d36590c997fe8efb81d8fa1a2b331945b3a355d5b394f88dfd60"
+  },
+  "downloads/AstroAmase_Lite_PILS_Candidate_v2.ipynb": {
+    "edition": "PILS parents and optional Lille methyl formate",
+    "example_catalog_counts": [
+      346,
+      347
+    ],
+    "bytes": 3496048,
+    "sha256": "909b203d4dd7ae577ea050d0bd80e5bded49cea9f4f63cfd98481bf28b3c4f44"
+  },
+  "downloads/AstroAmase_Lite_PILS_Extended_352.ipynb": {
+    "edition": "PILS extended candidate",
+    "example_catalog_counts": [
+      352
+    ],
+    "bytes": 4182594,
+    "sha256": "7fa8db2fd93a1d82350f6e31c9d11672470aec3db7e3c89e4bde4f3b03b1165e"
+  }
+}

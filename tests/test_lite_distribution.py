@@ -78,6 +78,29 @@ class LiteDistribution(unittest.TestCase):
             raw = b64decode(spec["blob"], validate=True)
             self.assertEqual(sha256(raw).hexdigest(), spec["sha256"])
 
+    def test_all_notebook_downloads_are_executable_and_use_the_same_engine(self):
+        editions = json.loads((DOCS / "editions.json").read_text())
+        notebook_links = sorted(k for k in self.page.downloads if k.endswith(".ipynb"))
+        self.assertEqual(notebook_links, sorted(editions))
+        for link in notebook_links:
+            with self.subTest(notebook=link):
+                data = (DOCS / link).read_bytes()
+                self.assertEqual(sha256(data).hexdigest(), editions[link]["sha256"])
+                notebook = json.loads(data)
+                ids = [cell["id"] for cell in notebook["cells"]]
+                self.assertEqual(len(ids), len(set(ids)))
+                self.assertEqual(notebook["nbformat"], 4)
+                for cell in notebook["cells"]:
+                    if cell["cell_type"] == "code":
+                        self.assertEqual(cell["outputs"], [])
+                        self.assertIsNone(cell["execution_count"])
+                        tree = ast.parse("".join(cell["source"]))
+                        if cell["id"] == "setup-environment":
+                            assets = {n.targets[0].id: n.value for n in tree.body if isinstance(n,ast.Assign)
+                                      and isinstance(n.targets[0],ast.Name)}
+                            engine = b64decode(ast.literal_eval(assets["ENGINE_BASE64"]), validate=True)
+                            self.assertEqual(sha256(engine).hexdigest(), self.assets["ENGINE_SHA"])
+
     def test_offline_guide(self):
         self.assertEqual(len(set(self.page.anchors)), len(self.page.anchors))
         self.assertIn("downloads/AstroAmase_Lite_Integrated.ipynb", self.page.downloads)

@@ -47,18 +47,18 @@
       <section id="quick-start" class="section" aria-labelledby="quick-title">
         <div class="section-intro">
           <h2 id="quick-title">Quick start</h2>
-          <p>Keep the synthetic defaults for this pass. At 140 K and 2.7 km/s, the Draft 02 general fit recovered all ten injected peaks locally and on a standard Colab CPU. Eight were assigned to CH<sub>3</sub>CN, one to H<sup>13</sup>C<sup>15</sup>N, and one to H<sub>2</sub>CO.</p>
+          <p>Click the triangular run button beside each numbered step and wait for that step to finish. Keep the synthetic defaults for this pass. At 140 K and 2.7 km/s, the Draft 02 general fit recovered all ten injected peaks locally and on a standard Colab CPU. Eight were assigned to CH<sub>3</sub>CN, one to H<sup>13</sup>C<sup>15</sup>N, and one to H<sub>2</sub>CO.</p>
         </div>
         <div class="flow">
           <ol class="steps">
             <li><h3>Upload the notebook to Colab</h3><p>Sign in to Colab and choose <strong>File → Upload notebook</strong>. Select the downloaded <code>.ipynb</code>. Under <strong>Runtime → Change runtime type</strong>, select <strong>CPU</strong> under Hardware accelerator.</p></li>
-            <li><h3>Set up Python and prepare the catalogs</h3><p>Run step 1 to install the isolated CPU environment. Then run step 2 with <strong>Draft 02 general</strong> and <strong>Public archive to runtime</strong>. The first catalog preparation transfers about 1.13 GB from Zenodo before retries and checks for 2.5 GB of free runtime disk. In one fresh Colab CPU session that transfer took 14.2 minutes, and assembling the database took another 54 seconds. Keep several GB available for working copies and results.</p></li>
-            <li><h3>Preview and fit the synthetic spectrum</h3><p>Run step 3 with <strong>Synthetic example</strong>. Keep <strong>Use synthetic reference settings</strong> selected in step 4, then run step 5. The reference settings include a 1.2 km/s linewidth and 0.004 K RMS noise.</p></li>
+            <li><h3>Set up Python and prepare the catalogs</h3><p>Run step 1 to install the isolated CPU environment. Then run step 2 with <strong>Draft 02 general</strong> and <strong>Public archive to runtime</strong>. The first catalog preparation transfers about 1.13 GB from Zenodo before retries and checks for 2.5 GB of free runtime disk. Two fresh standard Colab CPU sessions took 9–14 minutes for the transfer and about one minute for assembly. Keep several GB available for working copies and results.</p></li>
+            <li><h3>Preview and fit the synthetic spectrum</h3><p>Run step 3 with <strong>Synthetic example</strong>. Run step 4 with <strong>Use synthetic reference settings</strong> selected. Then run step 5. The reference settings include a 1.2 km/s linewidth and 0.004 K RMS noise.</p></li>
             <li><h3>Inspect and save the fit</h3><p>Run step 6 to view the results, then step 7 to save the ZIP. If the browser download does not open, select <strong>Files</strong>, open the run folder printed in step 7, and choose <strong>Download</strong> from the ZIP’s menu. Save the ZIP before closing the runtime. <a href="#results">Read the tables and repeat a fit</a>.</p></li>
           </ol>
           <details>
             <summary>Try a larger synthetic spectrum</summary>
-            <p>In step 3, choose the 8,192-channel or 138,016-channel synthetic trial and rerun steps 3–7. Both simulate the same three species on new frequency grids and use the same fit settings when the reference option is selected. Keep the three native CDMS entries <code>030501</code>, <code>041505</code>, and <code>029512</code> eligible for these trials. The ten-peak reference count is specific to the 1,843-channel example. The larger trials exercise workload size, and their Colab performance is still under review.</p>
+            <p>In step 3, choose the 8,192-channel or 138,016-channel synthetic trial and rerun steps 3–7. Both simulate the same three species on new frequency grids and use the same fit settings when the reference option is selected. Keep the three native CDMS entries <code>030501</code>, <code>041505</code>, and <code>029512</code> eligible for these trials. The ten-peak reference count is specific to the 1,843-channel example. On a standard Colab CPU the 8,192-channel trial assigned 12 peaks in 17 seconds, and the 138,016-channel trial assigned 22 in 25 seconds. A separate crowded test with 131,072 channels and 1,715 extracted peaks took 141 seconds. These are fit times after catalog preparation.</p>
           </details>
         </div>
       </section>
@@ -101,11 +101,20 @@
           <div>
             <h3>Start with a draft edition</h3>
             <dl class="entries">
-              <div><dt>Draft 02 general</dt><dd>The default has 333 catalog objects for 231 identities. The selection starts with securely detected interstellar or circumstellar species, plus explicitly detected isotopologues. Each object covers a specific set of states or transitions. Some catalog mappings and state coverage remain under review. Glycolaldehyde and methyl formate, for example, are on catalog holds.</dd></div>
+              <div><dt>Draft 02 general</dt><dd>The default has 333 catalog objects for 231 identities. The selection starts with securely detected interstellar or circumstellar species, plus explicitly detected isotopologues. Each object covers a specific set of states or transitions. Some catalog mappings and state coverage remain under review. The 333-catalog edition omits the main isotopologues of glycolaldehyde and methyl formate. The separate PILS candidate below offers a band-limited methyl formate model.</dd></div>
               <div><dt>Draft 02 PILS band</dt><dd>Adds 11 catalogs for a total of 344. Every input channel must lie within 329,150.112845–362,899.138030 MHz. These additions were tested against an excerpt from the Protostellar Interferometric Line Survey.</dd></div>
               <div><dt>Draft 01</dt><dd>The earlier 295-object comparison scope is selectable in step 2.</dd></div>
             </dl>
             <p>The repaired JPL catalog objects in Draft 02 were validated over 9.375–300 K. Use that range for a fixed excitation temperature. The notebook checks the pinned catalog version when using a compatible ZIP already in the runtime or at a direct HTTPS address. The default fetches verified catalog source files directly into the runtime.</p>
+          </div>
+          <div>
+            <h3>Try a newer catalog selection</h3>
+            <dl class="entries">
+              <div><dt><a href="downloads/AstroAmase_Lite_General_340_Ground_Options_v1.ipynb" download>General candidate · 340 catalogs (.ipynb)</a></dt><dd>Includes seven additional ground-state catalogs, among them HCO<sup>+</sup>, HNC and OCS. Keep the default <strong>Ground-state synthetic example</strong> to fit 24 injected lines in 24 windows at 18.75 K and 7.0 km/s. The fit may extract extra peaks on the shoulders of those lines. For ground-state SO, H₂S and resolved N₂H⁺, enter <code>CDMS:048501, CDMS:034502, CDMS:229506</code> in <strong>Add native keys</strong> in step 2. The three together bring the scope to 343.</dd></div>
+              <div><dt><a href="downloads/AstroAmase_Lite_PILS_Candidate_v2.ipynb" download>PILS-band candidate · 346 or 347 catalogs (.ipynb)</a></dt><dd>Use only for spectra contained in 329.150113–362.899138 GHz. In step 2 select <strong>PILS parents</strong> for acetaldehyde and dimethyl ether, or <strong>PILS parents + Lille methyl formate</strong> to add cis methyl formate. With the default synthetic example, expect eight peak assignments in the first edition and 17 in the second. Both support 9.375–300 K.</dd></div>
+              <div><dt><a href="downloads/AstroAmase_Lite_PILS_Extended_352.ipynb" download>Extended PILS-band candidate · 352 catalogs (.ipynb)</a></dt><dd>For the same observing band and temperature range, this edition also includes main methanol, glycolaldehyde with a shared column across four states, and the ground-state lines of propyne, ethyl cyanide and sulfur dioxide. The included 36,864-channel synthetic spectrum tests all eight additions to the 344-catalog selection at 150 K. The local reference fit assigned 197 peaks. Rerun steps 2–7 after changing the input or catalog selection as appropriate.</dd></div>
+            </dl>
+            <p>Upload the selected notebook through Colab’s <strong>File → Upload notebook</strong> menu. Each notebook builds its selected catalogs from pinned public sources and records the exact edition in your results ZIP.</p>
           </div>
           <div>
             <h3>Add or replace a catalog</h3>
@@ -119,7 +128,7 @@
                 <li>In step 2, select <strong>Draft 02 general</strong> and upload <code>metadata.json</code> and <code>transitions.csv</code> as one new catalog. Leave the native additions and exclusions empty.</li>
                 <li>In step 3, upload <code>spectrum.txt</code>. Its 3,400 rows use MHz and kelvin.</li>
                 <li>In step 4, choose <strong>Spectroscopy only</strong>, interferometric observations, a 0.5″ × 0.5″ beam and a 0.5″ source. Use 80 K, fixed velocity +2.7 km/s, linewidth 1.2 km/s, continuum 2.7 K, RMS 0.004 K, and a 10σ threshold. Set the column-density range to 10¹⁰–10¹⁷ cm⁻² and leave the fitting iteration limit at zero.</li>
-                <li>Run steps 5–7. The local trial assigned five peaks to <strong>Example linear rotor</strong> and recovered 3.95 × 10¹³ cm⁻² from 4.00 × 10¹³ cm⁻² injected. Running the same fit without the uploaded catalog left all five peaks unidentified.</li>
+                <li>Run steps 5–7. The local and Colab trials each assigned five peaks to <strong>Example linear rotor</strong> and recovered 3.95 × 10¹³ cm⁻² from 4.00 × 10¹³ cm⁻² injected. Running the same fit without the uploaded catalog left all five peaks unidentified.</li>
               </ol>
             </details>
           </div>
@@ -140,7 +149,11 @@
           </dl>
           <div class="inset">
             <h3>Repeat a saved run</h3>
-            <p>Extract the archive. Run step 2 again with the same catalog edition, native additions, and exclusions. Restore the saved <code>uploaded_catalogs/</code> folder when present. In step 3, select the saved <code>spectrum.txt</code>, then give the extracted archive’s path in step 4’s <code>saved_settings_folder</code>. The notebook verifies the spectrum, engine, catalog scope, and recorded settings before starting a new fit in step 5.</p>
+            <p>Upload your own saved results ZIP to the Colab Files pane. To extract it, add a code cell, replace <code>my-results.zip</code> with its filename, and run the cell.</p>
+            <pre aria-label="Extract your saved result ZIP in Colab"><code>from zipfile import ZipFile
+with ZipFile("/content/my-results.zip") as z:
+    z.extractall("/content/replay")</code></pre>
+            <p>Use <code>/content/replay</code> as the extracted archive path. Run step 2 again with the same catalog edition, native additions, and exclusions. When the saved ZIP includes <code>uploaded_catalogs/</code>, choose <strong>Restore saved uploaded_catalogs folder</strong> and give its extracted path. In step 3, select the saved <code>spectrum.txt</code>, then give the extracted archive’s path in step 4’s <code>saved_settings_folder</code>. The notebook verifies the spectrum, engine, catalog scope, and recorded settings before starting a new fit in step 5.</p>
             <p>Clear notebook outputs before sharing a copy that used private data. The results ZIP includes the uploaded spectrum and original line-list texts, so share that ZIP only with people who may receive those files.</p>
           </div>
         </div>
@@ -165,13 +178,13 @@
     <div class="wrap section">
       <div class="section-intro">
         <h2>Release status</h2>
-        <p>November 20, 2026 · Draft 02<br>Staged for local review. Public deployment, release sign-off, and a support channel are pending.</p>
+        <p>November 20, 2026 · Internal candidates<br>Staged for local review. Public deployment, release sign-off, and a support channel are pending.</p>
       </div>
       <div class="flow">
         <p>Draft 01 was the 295-object comparison scope. Draft 02 includes the general and PILS-band candidates and integrates spectrum uploads, catalog changes, and fit replay. Local checks covered the three editions, CSV and SPCAT additions, and saved-result export. The integrated 333-catalog general edition also completed its clean Colab CPU fit. Its downloaded HTML embedded the plotting resources for offline viewing.</p>
         <p>For a report or publication, cite the Astro AMASE methods paper, Fried et al. (2026), <i>The Astrophysical Journal</i>, 1009, 173. Credit the versioned dataset and the original spectroscopy catalogs listed in the active manifest. Record the edition, engine revision, and catalog sources from the results ZIP. <a href="https://doi.org/10.3847/1538-4357/ae9a8e">Published paper</a> · <a href="https://arxiv.org/abs/2608.18221">Author preprint</a> · <a href="https://doi.org/10.5281/zenodo.21171085">Required Files for Astro Amase (CC BY 4.0)</a>.</p>
         <p>The results ZIP records the source revision and includes licenses for the MIT-licensed upstream Astro AMASE code and the simulation code derived from GPLv3-licensed molsim. <a href="https://github.com/zfried/astro_amase">Astro AMASE source</a> · <a href="https://github.com/bmcguir2/molsim">molsim source</a>.</p>
-        <p><a href="#help">Known issues and recovery</a></p>
+        <p><a href="editions.json" download>Download the notebook version and checksum list</a> · <a href="#help">Known issues and recovery</a></p>
       </div>
     </div>
   </footer>
