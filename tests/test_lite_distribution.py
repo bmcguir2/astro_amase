@@ -120,5 +120,18 @@ class LiteDistribution(unittest.TestCase):
             self.assertEqual({Path(name).name for name in z.namelist()},
                              {"spectrum.txt","metadata.json","transitions.csv","injection.json"})
 
+    def test_colab_launch_links(self):
+        prefix = "https://colab.research.google.com/github/bmcguir2/astro_amase/blob/astroamase-lite/docs/"
+        editions = json.loads((DOCS / "editions.json").read_text())
+        launch_links = {target for tag, target in self.page.links if tag == "a" and target.startswith(prefix)}
+        self.assertEqual(launch_links, {prefix + name for name in editions})
+        readme = (ROOT / "README.md").read_text()
+        self.assertIn(prefix + "downloads/AstroAmase_Lite_Integrated.ipynb", readme)
+        site = "https://bmcguir2.github.io/astro_amase/"
+        self.assertIn(site, readme)
+        for anchor in ("spectrum", "notebook-editions"):
+            self.assertIn(site + "#" + anchor, readme)
+            self.assertIn(anchor, self.page.anchors)
+
 if __name__ == "__main__":
     unittest.main()

@@ -27,14 +27,14 @@
     <section class="hero" aria-labelledby="title">
       <div class="wrap hero-layout">
         <div class="hero-copy">
-          <a class="eyebrow" href="#release">Draft 02 · Local preview</a>
           <h1 id="title">Fit a molecular spectrum</h1>
-          <p class="lede">Start with a synthetic spectrum whose carriers we already know. Then bring your own spectrum, choose which catalogs Astro AMASE can search, and inspect the fit in your browser.</p>
+          <p class="lede">Run AstroAmase Lite in Google Colab. Start with a synthetic spectrum with known carriers, then fit your own data.</p>
           <div class="actions">
-            <a class="button primary" href="downloads/AstroAmase_Lite_Integrated.ipynb" download>Download notebook (.ipynb)</a>
-            <a class="button secondary" href="https://colab.research.google.com/">Open Google Colab</a>
+            <a class="button primary" href="https://colab.research.google.com/github/bmcguir2/astro_amase/blob/astroamase-lite/docs/downloads/AstroAmase_Lite_Integrated.ipynb">Run in Google Colab</a>
+            <a class="button secondary" href="downloads/AstroAmase_Lite_Integrated.ipynb" download>Download notebook (.ipynb)</a>
           </div>
-          <p class="runtime-note">The guide works offline. The standard notebook setup and initial catalog preparation use the internet from your Colab CPU runtime.</p>
+          <p class="runtime-note">Start with the general reference notebook and follow the <a href="#quick-start">quick start</a>. The guide works offline. Colab and the standard catalog setup require internet access.</p>
+          <a class="edition-link" href="#notebook-editions">Browse other notebook editions</a>
         </div>
         <figure class="hero-figure">
           <img src="assets/synthetic-windows.png" width="1156" height="926" alt="Three frequency windows from the synthetic input. Methyl cyanide has eight peaks in the first window. H-13-C-15-N and formaldehyde each have one peak in their respective windows.">
@@ -47,11 +47,15 @@
       <section id="quick-start" class="section" aria-labelledby="quick-title">
         <div class="section-intro">
           <h2 id="quick-title">Quick start</h2>
-          <p>Click the triangular run button beside each numbered step and wait for that step to finish. Keep the synthetic defaults for this pass. At 140 K and 2.7 km/s, the Draft 02 general fit recovered all ten injected peaks locally and on a standard Colab CPU. Eight were assigned to CH<sub>3</sub>CN, one to H<sup>13</sup>C<sup>15</sup>N, and one to H<sub>2</sub>CO.</p>
+          <p>Click the triangular run button beside each numbered step and wait for that step to finish. Keep the synthetic defaults for this pass. At 140 K, with a fixed <var>V</var><sub>LSR</sub> of 2.7 km/s and a linewidth of 1.2 km/s, the Draft 02 general fit recovered all ten injected peaks locally and on a standard Colab CPU. Eight were assigned to CH<sub>3</sub>CN, one to H<sup>13</sup>C<sup>15</sup>N, and one to H<sub>2</sub>CO.</p>
         </div>
         <div class="flow">
           <ol class="steps">
-            <li><h3>Upload the notebook to Colab</h3><p>Sign in to Colab and choose <strong>File → Upload notebook</strong>. Select the downloaded <code>.ipynb</code>. Under <strong>Runtime → Change runtime type</strong>, select <strong>CPU</strong> under Hardware accelerator.</p></li>
+            <li>
+              <h3>Open the notebook in Colab</h3>
+              <p>Choose <strong>Run in Google Colab</strong> above and sign in with a Google account. You can run the public notebook directly. To keep edits, choose <strong>File → Save a copy in Drive</strong> and work in your copy. Under <strong>Runtime → Change runtime type</strong>, select <strong>CPU</strong> under Hardware accelerator.</p>
+              <p>If you downloaded the <code>.ipynb</code>, open <a href="https://colab.research.google.com/">Google Colab</a> and choose <strong>File → Upload notebook</strong> to open that file.</p>
+            </li>
             <li><h3>Set up Python and prepare the catalogs</h3><p>Run step 1 to install the isolated CPU environment. Then run step 2 with <strong>Draft 02 general</strong> and <strong>Public archive to runtime</strong>. The first catalog preparation transfers about 1.13 GB from Zenodo before retries and checks for 2.5 GB of free runtime disk. Two fresh standard Colab CPU sessions took 9–14 minutes for the transfer and about one minute for assembly. Keep several GB available for working copies and results.</p></li>
             <li><h3>Preview and fit the synthetic spectrum</h3><p>Run step 3 with <strong>Synthetic example</strong>. Run step 4 with <strong>Use synthetic reference settings</strong> selected. Then run step 5. The reference settings include a 1.2 km/s linewidth and 0.004 K RMS noise.</p></li>
             <li><h3>Inspect and save the fit</h3><p>Run step 6 to view the results, then step 7 to save the ZIP. If the browser download does not open, select <strong>Files</strong>, open the run folder printed in step 7, and choose <strong>Download</strong> from the ZIP’s menu. Save the ZIP before closing the runtime. <a href="#results">Read the tables and repeat a fit</a>.</p></li>
@@ -76,7 +80,7 @@
             <pre aria-label="Example rows in MHz and K"><code>330700.000000 -0.005702490
 330700.250000 -0.002924239
 330700.500000 -0.002570426</code></pre>
-            <p>Choose <strong>Upload a spectrum</strong> or <strong>File in the runtime</strong>. For local Jupyter, use the file option and select <strong>Existing local Python</strong> in step 1. Give the path to an existing Python 3.12 Astro AMASE environment, and make sure the notebook kernel has pandas and matplotlib. To use a Google Drive file in Colab, mount Drive and give the file’s runtime path.</p>
+            <p>Choose <strong>Upload a spectrum</strong> to select a file from your computer, or choose <strong>File in the runtime</strong> and enter the file’s path in Colab. To use a Google Drive file, mount Drive from the Colab Files pane and enter the file’s runtime path.</p>
           </div>
           <div>
             <h3>Match the settings to the observation</h3>
@@ -107,14 +111,35 @@
             </dl>
             <p>The repaired JPL catalog objects in Draft 02 were validated over 9.375–300 K. Use that range for a fixed excitation temperature. The notebook checks the pinned catalog version when using a compatible ZIP already in the runtime or at a direct HTTPS address. The default fetches verified catalog source files directly into the runtime.</p>
           </div>
-          <div>
-            <h3>Try a newer catalog selection</h3>
+          <div id="notebook-editions">
+            <h3>Other notebook editions</h3>
             <dl class="entries">
-              <div><dt><a href="downloads/AstroAmase_Lite_General_340_Ground_Options_v1.ipynb" download>General candidate · 340 catalogs (.ipynb)</a></dt><dd>Includes seven additional ground-state catalogs, among them HCO<sup>+</sup>, HNC and OCS. Keep the default <strong>Ground-state synthetic example</strong> to fit 24 injected lines in 24 windows at 18.75 K and 7.0 km/s. The fit may extract extra peaks on the shoulders of those lines. For ground-state SO, H₂S and resolved N₂H⁺, enter <code>CDMS:048501, CDMS:034502, CDMS:229506</code> in <strong>Add native keys</strong> in step 2. The three together bring the scope to 343.</dd></div>
-              <div><dt><a href="downloads/AstroAmase_Lite_PILS_Candidate_v2.ipynb" download>PILS-band candidate · 346 or 347 catalogs (.ipynb)</a></dt><dd>Use only for spectra contained in 329.150113–362.899138 GHz. In step 2 select <strong>PILS parents</strong> for acetaldehyde and dimethyl ether, or <strong>PILS parents + Lille methyl formate</strong> to add cis methyl formate. With the default synthetic example, expect eight peak assignments in the first edition and 17 in the second. Both support 9.375–300 K.</dd></div>
-              <div><dt><a href="downloads/AstroAmase_Lite_PILS_Extended_352.ipynb" download>Extended PILS-band candidate · 352 catalogs (.ipynb)</a></dt><dd>For the same observing band and temperature range, this edition also includes main methanol, glycolaldehyde with a shared column across four states, and the ground-state lines of propyne, ethyl cyanide and sulfur dioxide. The included 36,864-channel synthetic spectrum tests all eight additions to the 344-catalog selection at 150 K. The local reference fit assigned 197 peaks. Rerun steps 2–7 after changing the input or catalog selection as appropriate.</dd></div>
+              <div>
+                <dt>General candidate · 340 catalogs</dt>
+                <dd class="edition-actions">
+                  <a href="https://colab.research.google.com/github/bmcguir2/astro_amase/blob/astroamase-lite/docs/downloads/AstroAmase_Lite_General_340_Ground_Options_v1.ipynb" aria-label="Run the 340-catalog general candidate in Google Colab">Run in Google Colab</a>
+                  <a href="downloads/AstroAmase_Lite_General_340_Ground_Options_v1.ipynb" download aria-label="Download the 340-catalog general candidate notebook">Download (.ipynb)</a>
+                </dd>
+                <dd>Includes seven additional ground-state catalogs, among them HCO<sup>+</sup>, HNC, and OCS. Keep the default <strong>Ground-state synthetic example</strong> to fit 24 injected lines in 24 windows at 18.75 K and 7.0 km/s. The fit may extract extra peaks on the shoulders of those lines. For ground-state SO, H₂S, and resolved N₂H⁺, enter <code>CDMS:048501, CDMS:034502, CDMS:229506</code> in <strong>Add native keys</strong> in step 2. The three together bring the scope to 343.</dd>
+              </div>
+              <div>
+                <dt>PILS-band candidate · 346 or 347 catalogs</dt>
+                <dd class="edition-actions">
+                  <a href="https://colab.research.google.com/github/bmcguir2/astro_amase/blob/astroamase-lite/docs/downloads/AstroAmase_Lite_PILS_Candidate_v2.ipynb" aria-label="Run the 346- or 347-catalog PILS-band candidate in Google Colab">Run in Google Colab</a>
+                  <a href="downloads/AstroAmase_Lite_PILS_Candidate_v2.ipynb" download aria-label="Download the 346- or 347-catalog PILS-band candidate notebook">Download (.ipynb)</a>
+                </dd>
+                <dd>Use only for spectra contained in 329.150113–362.899138 GHz. In step 2 select <strong>PILS parents</strong> for acetaldehyde and dimethyl ether, or <strong>PILS parents + Lille methyl formate</strong> to add cis methyl formate. With the default synthetic example, expect eight peak assignments in the first edition and 17 in the second. Both support 9.375–300 K.</dd>
+              </div>
+              <div>
+                <dt>Extended PILS-band candidate · 352 catalogs</dt>
+                <dd class="edition-actions">
+                  <a href="https://colab.research.google.com/github/bmcguir2/astro_amase/blob/astroamase-lite/docs/downloads/AstroAmase_Lite_PILS_Extended_352.ipynb" aria-label="Run the 352-catalog extended PILS-band candidate in Google Colab">Run in Google Colab</a>
+                  <a href="downloads/AstroAmase_Lite_PILS_Extended_352.ipynb" download aria-label="Download the 352-catalog extended PILS-band candidate notebook">Download (.ipynb)</a>
+                </dd>
+                <dd>For the same observing band and temperature range, this edition also includes main methanol, glycolaldehyde with a shared column across four states, and the ground-state lines of propyne, ethyl cyanide, and sulfur dioxide. The included 36,864-channel synthetic spectrum tests all eight additions to the 344-catalog selection at 150 K. The local reference fit assigned 197 peaks. Rerun steps 2–7 after changing the input or catalog selection as appropriate.</dd>
+              </div>
             </dl>
-            <p>Upload the selected notebook through Colab’s <strong>File → Upload notebook</strong> menu. Each notebook builds its selected catalogs from pinned public sources and records the exact edition in your results ZIP.</p>
+            <p>Each notebook builds its selected catalogs from pinned public sources and records the exact edition in your results ZIP.</p>
           </div>
           <div>
             <h3>Add or replace a catalog</h3>
@@ -178,7 +203,7 @@ with ZipFile("/content/my-results.zip") as z:
     <div class="wrap section">
       <div class="section-intro">
         <h2>Release status</h2>
-        <p>November 20, 2026 · Internal candidates<br>Staged for local review. Public deployment, release sign-off, and a support channel are pending.</p>
+        <p>November 20, 2026 · Public draft<br>The notebook and catalog selections are available for testing.</p>
       </div>
       <div class="flow">
         <p>Draft 01 was the 295-object comparison scope. Draft 02 includes the general and PILS-band candidates and integrates spectrum uploads, catalog changes, and fit replay. Local checks covered the three editions, CSV and SPCAT additions, and saved-result export. The integrated 333-catalog general edition also completed its clean Colab CPU fit. Its downloaded HTML embedded the plotting resources for offline viewing.</p>
