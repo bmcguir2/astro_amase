@@ -1,5 +1,7 @@
 # Astro AMASE
 
+The AstroAmase Lite development branch includes a [Colab workflow and instructions](LITE.md).
+
 **Automated Molecular Assignment and Source Parameter Estimation in Radio Astronomical Observations**
 
 **⚠️ Update (Feb 13, 2026):** A notable efficiency fix was released today. Please reinstall if you have an existing installation.

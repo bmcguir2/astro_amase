@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Run the AstroAmase Lite draft notebook, prepare a spectrum and catalog scope, and inspect or repeat a fit.">
+  <meta name="robots" content="noindex, nofollow">
+  <title>AstroAmase Lite · Notebook guide</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to instructions</a>
+  <header class="masthead">
+    <div class="wrap header">
+      <a class="brand" href="#main">AstroAmase Lite</a>
+      <nav aria-label="Guide sections">
+        <a href="#quick-start">Quick start</a>
+        <a href="#spectrum">Your spectrum</a>
+        <a href="#catalogs">Catalogs</a>
+        <a href="#results">Results</a>
+        <a href="#help">Troubleshooting</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" tabindex="-1">
+    <section class="hero" aria-labelledby="title">
+      <div class="wrap hero-layout">
+        <div class="hero-copy">
+          <a class="eyebrow" href="#release">Draft 02 · Local preview</a>
+          <h1 id="title">Fit a molecular spectrum</h1>
+          <p class="lede">Start with a synthetic spectrum whose carriers we already know. Then bring your own spectrum, choose which catalogs Astro AMASE can search, and inspect the fit in your browser.</p>
+          <div class="actions">
+            <a class="button primary" href="downloads/AstroAmase_Lite_Integrated.ipynb" download>Download notebook (.ipynb)</a>
+            <a class="button secondary" href="https://colab.research.google.com/">Open Google Colab</a>
+          </div>
+          <p class="runtime-note">The guide works offline. The standard notebook setup and initial catalog preparation use the internet from your Colab CPU runtime.</p>
+        </div>
+        <figure class="hero-figure">
+          <img src="assets/synthetic-windows.png" width="1156" height="926" alt="Three frequency windows from the synthetic input. Methyl cyanide has eight peaks in the first window. H-13-C-15-N and formaldehyde each have one peak in their respective windows.">
+          <figcaption>The notebook’s synthetic input has 1,843 channels across three frequency windows.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <div class="wrap guide">
+      <section id="quick-start" class="section" aria-labelledby="quick-title">
+        <div class="section-intro">
+          <h2 id="quick-title">Quick start</h2>
+          <p>Keep the synthetic defaults for this pass. At 140 K and 2.7 km/s, the Draft 02 general fit recovered all ten injected peaks locally and on a standard Colab CPU. Eight were assigned to CH<sub>3</sub>CN, one to H<sup>13</sup>C<sup>15</sup>N, and one to H<sub>2</sub>CO.</p>
+        </div>
+        <div class="flow">
+          <ol class="steps">
+            <li><h3>Upload the notebook to Colab</h3><p>Sign in to Colab and choose <strong>File → Upload notebook</strong>. Select the downloaded <code>.ipynb</code>. Under <strong>Runtime → Change runtime type</strong>, select <strong>CPU</strong> under Hardware accelerator.</p></li>
+            <li><h3>Set up Python and prepare the catalogs</h3><p>Run step 1 to install the isolated CPU environment. Then run step 2 with <strong>Draft 02 general</strong> and <strong>Public archive to runtime</strong>. The first catalog preparation transfers about 1.13 GB from Zenodo before retries and checks for 2.5 GB of free runtime disk. In one fresh Colab CPU session that transfer took 14.2 minutes, and assembling the database took another 54 seconds. Keep several GB available for working copies and results.</p></li>
+            <li><h3>Preview and fit the synthetic spectrum</h3><p>Run step 3 with <strong>Synthetic example</strong>. Keep <strong>Use synthetic reference settings</strong> selected in step 4, then run step 5. The reference settings include a 1.2 km/s linewidth and 0.004 K RMS noise.</p></li>
+            <li><h3>Inspect and save the fit</h3><p>Run step 6 to view the results, then step 7 to save the ZIP. If the browser download does not open, select <strong>Files</strong>, open the run folder printed in step 7, and choose <strong>Download</strong> from the ZIP’s menu. Save the ZIP before closing the runtime. <a href="#results">Read the tables and repeat a fit</a>.</p></li>
+          </ol>
+          <details>
+            <summary>Try a larger synthetic spectrum</summary>
+            <p>In step 3, choose the 8,192-channel or 138,016-channel synthetic trial and rerun steps 3–7. Both simulate the same three species on new frequency grids and use the same fit settings when the reference option is selected. Keep the three native CDMS entries <code>030501</code>, <code>041505</code>, and <code>029512</code> eligible for these trials. The ten-peak reference count is specific to the 1,843-channel example. The larger trials exercise workload size, and their Colab performance is still under review.</p>
+          </details>
+        </div>
+      </section>
+
+      <section id="spectrum" class="section" aria-labelledby="spectrum-title">
+        <div class="section-intro">
+          <h2 id="spectrum-title">Use your own spectrum</h2>
+          <p>Step 3 checks the text and frequency order. You supply the units and observation settings.</p>
+          <a href="assets/synthetic-spectrum.txt" download>Download the example spectrum (.txt)</a>
+        </div>
+        <div class="flow">
+          <div>
+            <h3>Prepare two columns</h3>
+            <p>Use plain text with no header. Put frequency in MHz first and intensity in K second, separated by spaces or a tab. Use strictly increasing frequencies. Convert GHz or Jy/beam to the required units before uploading, using the appropriate brightness conversion for your data. The preview may show fewer points for a large file. The fit uses all channels.</p>
+            <pre aria-label="Example rows in MHz and K"><code>330700.000000 -0.005702490
+330700.250000 -0.002924239
+330700.500000 -0.002570426</code></pre>
+            <p>Choose <strong>Upload a spectrum</strong> or <strong>File in the runtime</strong>. For local Jupyter, use the file option and select <strong>Existing local Python</strong> in step 1. Give the path to an existing Python 3.12 Astro AMASE environment, and make sure the notebook kernel has pandas and matplotlib. To use a Google Drive file in Colab, mount Drive and give the file’s runtime path.</p>
+          </div>
+          <div>
+            <h3>Match the settings to the observation</h3>
+            <p>In step 4, set the source diameter and observing geometry. Supply the dish diameter for single-dish data or both beam axes for interferometric data. These values affect the simulated brightness. Use <code>1e20</code> arcsec for a beam-filling source.</p>
+            <p>A fixed velocity relative to the local standard of rest (<var>V</var><sub>LSR</sub>) requires a fixed excitation temperature. To estimate velocity, clear the fixed velocity field, enter search bounds, and choose whether to fix or estimate temperature. The draft has limited validation for automatic estimates.</p>
+            <p>Set the linewidth, the RMS noise, and the peak threshold in units of that noise. Blank linewidth or RMS fields request estimates. A fitting iteration limit of <code>0</code> runs until convergence.</p>
+            <details>
+              <summary>Advanced fit settings</summary>
+              <p>Step 4 also offers the continuum temperature, column-density bounds, and structural scoring. The default element list is C, O, H, N, and S. A candidate with an element outside the list receives half its global score.</p>
+              <p>When estimating velocity, you can supply a JSON list of exact active catalog labels as tracers. The known-molecules field takes a JSON list of SMILES for species established independently in the source. For example, <code>["C"]</code> represents methane. That prior changes scoring, and the catalog still competes for assignments.</p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <section id="catalogs" class="section" aria-labelledby="catalogs-title">
+        <div class="section-intro">
+          <h2 id="catalogs-title">Choose eligible catalogs</h2>
+          <p>The catalog scope determines which transitions the fit can consider. An assignment is a candidate interpretation of the observed lines. A detection needs scientific evidence beyond catalog eligibility and a fitted match.</p>
+        </div>
+        <div class="flow">
+          <div>
+            <h3>Start with a draft edition</h3>
+            <dl class="entries">
+              <div><dt>Draft 02 general</dt><dd>The default has 333 catalog objects for 231 identities. The selection starts with securely detected interstellar or circumstellar species, plus explicitly detected isotopologues. Each object covers a specific set of states or transitions. Some catalog mappings and state coverage remain under review. Glycolaldehyde and methyl formate, for example, are on catalog holds.</dd></div>
+              <div><dt>Draft 02 PILS band</dt><dd>Adds 11 catalogs for a total of 344. Every input channel must lie within 329,150.112845–362,899.138030 MHz. These additions were tested against an excerpt from the Protostellar Interferometric Line Survey.</dd></div>
+              <div><dt>Draft 01</dt><dd>The earlier 295-object comparison scope is selectable in step 2.</dd></div>
+            </dl>
+            <p>The repaired JPL catalog objects in Draft 02 were validated over 9.375–300 K. Use that range for a fixed excitation temperature. The notebook checks the pinned catalog version when using a compatible ZIP already in the runtime or at a direct HTTPS address. The default fetches verified catalog source files directly into the runtime.</p>
+          </div>
+          <div>
+            <h3>Add or replace a catalog</h3>
+            <p>Use <strong>Look up CDMS and JPL catalogs</strong> to search the inventory. The lookup includes the reasons an entry is on hold. Fourteen reviewed catalogs can be added individually. Enter their database and tag in <strong>Add native keys</strong>, separated by commas. For example, <code>CDMS:017503</code> makes ground-state CH<sub>3</sub>D eligible.</p>
+            <p>Read the entry’s limits and conflicts before changing the scope. To try the alternative C<sub>3</sub>S catalog <code>JPL:068001</code>, enter <code>CDMS:068503</code> in <strong>Exclude native keys</strong>. Eleven optional catalogs are restricted to the reviewed PILS band. The notebook checks the resulting frequency and temperature limits.</p>
+            <p>For a new line list, supply a metadata JSON file and either an Einstein A CSV or a supported fixed-width SPCAT <code>.cat</code> file. Match the partition function, energy zero, states, and statistical weights to the line list. The table must cover 300 K for line ranking and each modeling temperature. Give the upload its own LOCAL tag and label. Exclude the original entry when replacing an active representation.</p>
+            <details>
+              <summary>Try a new catalog with a matching spectrum</summary>
+              <p><a href="assets/rotor-upload-example.zip" download>Download the practice catalog and spectrum</a> and extract the ZIP. These files describe a fictional CO-like linear rotor with invented constants. They demonstrate how an upload enters the analysis.</p>
+              <ol>
+                <li>In step 2, select <strong>Draft 02 general</strong> and upload <code>metadata.json</code> and <code>transitions.csv</code> as one new catalog. Leave the native additions and exclusions empty.</li>
+                <li>In step 3, upload <code>spectrum.txt</code>. Its 3,400 rows use MHz and kelvin.</li>
+                <li>In step 4, choose <strong>Spectroscopy only</strong>, interferometric observations, a 0.5″ × 0.5″ beam and a 0.5″ source. Use 80 K, fixed velocity +2.7 km/s, linewidth 1.2 km/s, continuum 2.7 K, RMS 0.004 K, and a 10σ threshold. Set the column-density range to 10¹⁰–10¹⁷ cm⁻² and leave the fitting iteration limit at zero.</li>
+                <li>Run steps 5–7. The local trial assigned five peaks to <strong>Example linear rotor</strong> and recovered 3.95 × 10¹³ cm⁻² from 4.00 × 10¹³ cm⁻² injected. Running the same fit without the uploaded catalog left all five peaks unidentified.</li>
+              </ol>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <section id="results" class="section" aria-labelledby="results-title">
+        <div class="section-intro">
+          <h2 id="results-title">Read and repeat a fit</h2>
+          <p>Compare the fitted curve with the input, then check which catalog supplies each line and which peaks are still unidentified. Look for expected lines that are missing, blends with plausible alternatives, and fitted columns that reach a bound.</p>
+        </div>
+        <div class="flow">
+          <dl class="entries">
+            <div><dt><code>results/fit_spectrum.html</code></dt><dd>Interactive plot. Extract the ZIP and open this file in a browser, including offline.</dd></div>
+            <div><dt><code>results/final_peak_results.csv</code></dt><dd>Peak frequencies and assignments, including unidentified peaks.</dd></div>
+            <div><dt><code>results/column_density_results.csv</code></dt><dd>Fitted column densities in cm<sup>−2</sup>. The <code>results/individual_contributions/</code> folder shows individual models and residuals.</dd></div>
+            <div><dt><code>active_catalogs.csv</code> and <code>requested_parameters.json</code></dt><dd>The entries eligible for the fit and the requested settings. The archive also contains the exact input, effective settings, code and environment details, and catalog provenance.</dd></div>
+          </dl>
+          <div class="inset">
+            <h3>Repeat a saved run</h3>
+            <p>Extract the archive. Run step 2 again with the same catalog edition, native additions, and exclusions. Restore the saved <code>uploaded_catalogs/</code> folder when present. In step 3, select the saved <code>spectrum.txt</code>, then give the extracted archive’s path in step 4’s <code>saved_settings_folder</code>. The notebook verifies the spectrum, engine, catalog scope, and recorded settings before starting a new fit in step 5.</p>
+            <p>Clear notebook outputs before sharing a copy that used private data. The results ZIP includes the uploaded spectrum and original line-list texts, so share that ZIP only with people who may receive those files.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="help" class="section" aria-labelledby="help-title">
+        <div class="section-intro">
+          <h2 id="help-title">Troubleshooting</h2>
+          <p>Colab’s available resources and session lifetime vary. Save completed results while the runtime is connected. <a href="https://research.google.com/colaboratory/faq.html">Colab resource and sharing FAQ</a>.</p>
+        </div>
+        <div class="flow">
+          <details><summary>Setup or catalog preparation stopped</summary><p>For setup errors, run <strong>Download setup diagnostics</strong> if step 1 reached its diagnostics folder. For a catalog transfer error, rerun step 2 in the same runtime to reuse verified files and segments. For a ZIP mismatch, check that the file matches the edition selected in step 2.</p></details>
+          <details><summary>The fit rejected the spectrum or settings</summary><p>Check the frequency and intensity units, strictly increasing channel order, and absence of a header. If any channel is outside the PILS limits, switch to the general edition. Check the fixed-temperature range and switch to spectroscopy-only scoring if your upload needs it.</p></details>
+          <details><summary>I changed an input or lost the runtime</summary><p>After changing catalogs, run steps 2–5. After changing the spectrum, run steps 3–5. After editing fit settings, rerun steps 4–5. Then run steps 6 and 7 for the new fit. If Colab starts a new runtime, begin again at step 1 and use the saved ZIP to restore your inputs and settings.</p></details>
+          <details><summary>The plot is blank or a run stopped</summary><p>For a completed fit, use step 7 to download the ZIP and open <code>results/fit_spectrum.html</code> directly. For an interrupted fit, inspect the cell error and the log printed in step 5. For review, record the edition, failed step, and error or relevant log excerpt after removing private data and paths.</p></details>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer id="release" class="release">
+    <div class="wrap section">
+      <div class="section-intro">
+        <h2>Release status</h2>
+        <p>November 20, 2026 · Draft 02<br>Staged for local review. Public deployment, release sign-off, and a support channel are pending.</p>
+      </div>
+      <div class="flow">
+        <p>Draft 01 was the 295-object comparison scope. Draft 02 includes the general and PILS-band candidates and integrates spectrum uploads, catalog changes, and fit replay. Local checks covered the three editions, CSV and SPCAT additions, and saved-result export. The integrated 333-catalog general edition also completed its clean Colab CPU fit. Its downloaded HTML embedded the plotting resources for offline viewing.</p>
+        <p>For a report or publication, cite the Astro AMASE methods paper, Fried et al. (2026), <i>The Astrophysical Journal</i>, 1009, 173. Credit the versioned dataset and the original spectroscopy catalogs listed in the active manifest. Record the edition, engine revision, and catalog sources from the results ZIP. <a href="https://doi.org/10.3847/1538-4357/ae9a8e">Published paper</a> · <a href="https://arxiv.org/abs/2608.18221">Author preprint</a> · <a href="https://doi.org/10.5281/zenodo.21171085">Required Files for Astro Amase (CC BY 4.0)</a>.</p>
+        <p>The results ZIP records the source revision and includes licenses for the MIT-licensed upstream Astro AMASE code and the simulation code derived from GPLv3-licensed molsim. <a href="https://github.com/zfried/astro_amase">Astro AMASE source</a> · <a href="https://github.com/bmcguir2/molsim">molsim source</a>.</p>
+        <p><a href="#help">Known issues and recovery</a></p>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
